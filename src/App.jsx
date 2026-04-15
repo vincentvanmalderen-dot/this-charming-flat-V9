@@ -327,6 +327,56 @@ function Calendar({ blockedDates, ownerDates=[], onSelectRange, selectedStart, s
   );
 }
 
+// ─── COOKIE BANNER ───────────────────────────────────────────────────────────
+
+function CookieBanner() {
+  const [visible, setVisible] = useState(() => {
+    try { return !localStorage.getItem("tcf_cookies_accepted"); }
+    catch(e) { return true; }
+  });
+
+  function accept() {
+    try { localStorage.setItem("tcf_cookies_accepted", "1"); } catch(e) {}
+    setVisible(false);
+  }
+
+  function decline() {
+    try { localStorage.setItem("tcf_cookies_accepted", "0"); } catch(e) {}
+    setVisible(false);
+  }
+
+  if (!visible) return null;
+
+  return (
+    <div style={{
+      position:"fixed", bottom:0, left:0, right:0, zIndex:99999,
+      background:"rgba(10,15,46,0.97)", backdropFilter:"blur(8px)",
+      padding:"16px 24px", display:"flex", alignItems:"center",
+      justifyContent:"space-between", flexWrap:"wrap", gap:"12px",
+      borderTop:"2px solid rgba(220,36,31,0.4)"
+    }}>
+      <div style={{flex:1, minWidth:"260px"}}>
+        <p style={{color:"white", fontSize:"0.85rem", lineHeight:"1.6", margin:0}}>
+          🍪 We use cookies to remember your preferences and improve your experience.
+          By using this site you agree to our Privacy Policy.
+        </p>
+      </div>
+      <div style={{display:"flex", gap:"8px", flexShrink:0}}>
+        <button onClick={decline} style={{
+          background:"transparent", border:"1px solid rgba(255,255,255,0.3)",
+          color:"rgba(255,255,255,0.7)", borderRadius:"6px", padding:"7px 16px",
+          fontSize:"0.82rem", cursor:"pointer", fontWeight:"500"
+        }}>Decline</button>
+        <button onClick={accept} style={{
+          background:"linear-gradient(135deg,#b6000a,#dc241f)",
+          border:"none", color:"white", borderRadius:"6px", padding:"7px 18px",
+          fontSize:"0.82rem", cursor:"pointer", fontWeight:"700"
+        }}>Accept cookies</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── GUEST: TOP NAV ───────────────────────────────────────────────────────────
 
 function GuestNav({ activeTab, setTab, showPricing }) {
