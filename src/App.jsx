@@ -2297,8 +2297,12 @@ export default function App() {
         if(t) setTips(t);
         if(tb) setTextBlocks(tb);
         // Requests loaded separately when admin logs in
-      }catch(e){console.error(e);}
-      setLoading(false);
+      }catch(e){
+        console.error("Load error:", e);
+        // Always show the site even if data loading fails
+      }finally{
+        setLoading(false);
+      }
     }
     load();
   },[]);
