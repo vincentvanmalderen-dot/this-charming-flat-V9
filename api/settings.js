@@ -2,23 +2,25 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 
-const headers = {
-  apikey: SUPABASE_KEY,
-  Authorization: `Bearer ${SUPABASE_KEY}`,
-  "Content-Type": "application/json",
-};
-
 export default async function handler(req, res) {
-  // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-admin-token");
   if (req.method === "OPTIONS") return res.status(200).end();
 
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    return res.status(500).json({ error: "Server configuration missing" });
+  }
+
+  const headers = {
+    apikey: SUPABASE_KEY,
+    Authorization: `Bearer ${SUPABASE_KEY}`,
+    "Content-Type": "application/json",
+  };
+
   const { key } = req.query;
   if (!key) return res.status(400).json({ error: "Missing key" });
 
-  // GET — public, anyone can read settings
   if (req.method === "GET") {
     try {
       const r = await fetch(
@@ -32,7 +34,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // POST — requires admin token
   if (req.method === "POST") {
     const token = req.headers["x-admin-token"];
     if (!token || token !== ADMIN_SECRET) {
