@@ -23,17 +23,14 @@ export default async function handler(req, res) {
 
   if (req.method === "GET") {
     try {
-      const url = `${SUPABASE_URL}/rest/v1/settings?key=eq.${key}&select=value`;
-      const r = await fetch(url, { headers });
-      const text = await r.text();
-      let data;
-      try { data = JSON.parse(text); } catch(e) { data = []; }
-      if (req.query.debug === "1") {
-        return res.status(200).json({ url, status: r.status, raw: text });
-      }
+      const r = await fetch(
+        `${SUPABASE_URL}/rest/v1/settings?key=eq.${key}&select=value`,
+        { headers }
+      );
+      const data = await r.json();
       return res.status(200).json({ value: data?.[0]?.value ?? null });
     } catch (e) {
-      return res.status(500).json({ error: "Failed to get setting", detail: e.message });
+      return res.status(500).json({ error: "Failed to get setting" });
     }
   }
 
