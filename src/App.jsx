@@ -2364,7 +2364,7 @@ function AdminIcalSync({ blockedDates, setBlockedDates, airbnbDates, setAirbnbDa
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px",flexWrap:"wrap",gap:"12px"}}>
           <div>
             <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem",marginBottom:"4px"}}>Sync now</h3>
-            {lastSync&&<p style={{fontSize:"0.78rem",color:C.onSurfaceVariant}}>Last synced: {formatDate(lastSync)} · {syncedCount} dates added last run</p>}
+            {lastSync&&<p style={{fontSize:"0.78rem",color:C.onSurfaceVariant}}>Last synced: {lastSync?formatDate(lastSync.slice(0,10)):"never"} · {syncedCount} dates added last run</p>}
           </div>
           <button onClick={syncNow} disabled={!savedUrl||syncing} className="btn-primary"
             style={{display:"flex",alignItems:"center",gap:"8px",padding:"10px 24px",opacity:!savedUrl?0.5:1}}>
@@ -2382,7 +2382,7 @@ function AdminIcalSync({ blockedDates, setBlockedDates, airbnbDates, setAirbnbDa
         <div className="card" style={{padding:"24px",marginTop:"20px"}}>
           <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem",marginBottom:"16px"}}>Airbnb Bookings — Revenue</h3>
           <p style={{fontSize:"0.82rem",color:C.onSurfaceVariant,marginBottom:"16px"}}>Enter the net payout you received from Airbnb for each booking (after their fees).</p>
-          {airbnbBookings.map((b,i)=>(
+          {(airbnbBookings||[]).map((b,i)=>(
             <div key={b.id} style={{display:"flex",alignItems:"center",gap:"12px",padding:"10px 0",borderBottom:`1px solid ${C.surfaceContainerLow}`,flexWrap:"wrap"}}>
               <div style={{flex:1,minWidth:"200px"}}>
                 <div style={{fontWeight:"600",fontSize:"0.88rem"}}>{b.summary||"Airbnb booking"}</div>
@@ -2456,7 +2456,6 @@ function AdminView({ blockedDates, setBlockedDates, ownerDates, setOwnerDates, p
         {tab==="ical"&&<AdminIcalSync blockedDates={blockedDates} setBlockedDates={setBlockedDates} airbnbDates={airbnbDates} setAirbnbDates={setAirbnbDates} airbnbBookings={airbnbBookings} setAirbnbBookings={setAirbnbBookings} flashSave={flashSave}/>}
         {tab==="analytics"&&<AdminAnalytics requests={requests} airbnbBookings={airbnbBookings} costs={costs} setCosts={setCosts} flashSave={flashSave}/>}
         {tab==="textblocks"&&<AdminTextBlocks textBlocks={textBlocks} setTextBlocks={setTextBlocks} flashSave={flashSave}/>}
-        {tab==="guestbook"&&<AdminGuestbook entries={guestbookEntries} setEntries={setGuestbookEntries} flashSave={flashSave}/>}
         {tab==="textblocks"&&<AdminTextBlocks textBlocks={textBlocks} setTextBlocks={setTextBlocks} flashSave={flashSave}/>}
         {tab==="guestbook"&&<AdminGuestbook entries={guestbookEntries} setEntries={setGuestbookEntries} flashSave={flashSave}/>}
         {tab==="settings"&&<AdminSettings info={info} setInfo={setInfo} flashSave={flashSave}/>}
