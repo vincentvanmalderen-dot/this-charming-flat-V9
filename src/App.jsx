@@ -901,6 +901,110 @@ function GuestBook({ blockedDates, ownerDates, pricing, onSubmitRequest }) {
 
 
 
+// ─── ADMIN: TEXT BLOCKS ──────────────────────────────────────────────────────
+
+function AdminTextBlocks({ textBlocks, setTextBlocks, flashSave }) {
+  const [edit, setEdit] = useState(textBlocks && textBlocks.length > 0 
+    ? JSON.parse(JSON.stringify(textBlocks)) 
+    : [{title:"",content:""},{title:"",content:""},{title:"",content:""},{title:"",content:""},{title:"",content:""}]);
+
+  useEffect(() => {
+    if (textBlocks && textBlocks.length > 0) setEdit(JSON.parse(JSON.stringify(textBlocks)));
+  }, [textBlocks]);
+
+  async function save() {
+    setTextBlocks(edit);
+    await sb.setSetting("text_blocks", edit);
+    flashSave("Text blocks saved ✓");
+  }
+
+  function update(i, field, value) {
+    setEdit(prev => prev.map((b,idx) => idx===i ? {...b,[field]:value} : b));
+  }
+
+  function addBlock() {
+    setEdit(prev => [...prev, {title:"",content:""}]);
+  }
+
+  function removeBlock(i) {
+    setEdit(prev => prev.filter((_,idx) => idx!==i));
+  }
+
+  return (
+    <div className="slide-in">
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px",flexWrap:"wrap",gap:"12px"}}>
+        <div>
+          <h2 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1.3rem"}}>About Blocks</h2>
+          <p style={{fontSize:"0.85rem",color:C.onSurfaceVariant,marginTop:"4px"}}>These appear at the bottom of the "About the Flat" page — perfect for house manual content.</p>
+        </div>
+        <div style={{display:"flex",gap:"8px"}}>
+          <button onClick={addBlock} className="btn-ghost" style={{display:"flex",alignItems:"center",gap:"6px",fontSize:"0.85rem"}}>
+            <Icon name="add" size={16}/>Add block
+          </button>
+          <button onClick={save} className="btn-primary" style={{display:"flex",alignItems:"center",gap:"6px",fontSize:"0.85rem"}}>
+            <Icon name="save" size={16}/>Save all
+          </button>
+        </div>
+      </div>
+
+      <div style={{display:"flex",flexDirection:"column",gap:"16px",marginTop:"20px"}}>
+        {edit.map((block, i) => (
+          <div key={i} className="card" style={{padding:"24px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px"}}>
+              <span style={{fontSize:"0.78rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em"}}>Block {i+1}</span>
+              <button onClick={()=>removeBlock(i)} style={{background:"none",border:"none",color:C.error,cursor:"pointer",fontSize:"0.82rem",display:"flex",alignItems:"center",gap:"4px"}}>
+                <Icon name="delete" size={15}/>Remove
+              </button>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"5px"}}>Title (optional)</label>
+              <input value={block.title||""} onChange={e=>update(i,"title",e.target.value)}
+                placeholder="e.g. Heating & hot water" className="input-field"/>
+            </div>
+            <div style={{marginTop:"10px"}}>
+              <label style={{display:"block",fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"5px"}}>Content</label>
+              <textarea value={block.content||""} onChange={e=>update(i,"content",e.target.value)}
+                placeholder="Add your house manual content here..." className="input-field" style={{height:"100px",resize:"vertical",marginBottom:"10px"}}/>
+              <label style={{display:"block",fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"5px"}}>
+                Photo (optional)
+              </label>
+              <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+                {block.image&&<img src={block.image} alt="preview" style={{width:"56px",height:"56px",objectFit:"cover",borderRadius:"6px",flexShrink:0}}/>}
+                <div style={{flex:1}}>
+                  <input type="file" accept="image/*" onChange={e=>{
+                    const file=e.target.files[0]; if(!file) return;
+                    const reader=new FileReader();
+                    reader.onload=ev=>{
+                      const img=new Image();
+                      img.onload=()=>{
+                        const canvas=document.createElement("canvas");
+                        let w=img.width,h=img.height;
+                        if(w>1200){h=Math.round(h*1200/w);w=1200;}
+                        canvas.width=w;canvas.height=h;
+                        canvas.getContext("2d").drawImage(img,0,0,w,h);
+                        update(i,"image",canvas.toDataURL("image/jpeg",0.75));
+                      };
+                      img.src=ev.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                  }} style={{fontSize:"0.82rem",width:"100%"}}/>
+                  {block.image&&<button onClick={()=>update(i,"image","")} style={{background:"none",border:"none",color:C.error,fontSize:"0.75rem",cursor:"pointer",marginTop:"3px",padding:0}}>Remove photo</button>}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {edit.length === 0 && (
+        <div style={{textAlign:"center",padding:"40px",color:C.onSurfaceVariant}}>
+          <p>No blocks yet. Click "Add block" to get started.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── ADMIN: GUESTBOOK ────────────────────────────────────────────────────────
 
 function AdminGuestbook({ entries, setEntries, flashSave }) {
@@ -2346,7 +2450,7 @@ function AdminView({ blockedDates, setBlockedDates, ownerDates, setOwnerDates, p
         {tab==="requests"&&<AdminRequests requests={requests} setRequests={setRequests} blockedDates={blockedDates} setBlockedDates={setBlockedDates} flashSave={flashSave}/>}
         {tab==="photos"&&<AdminPhotos photos={photos} setPhotos={setPhotos} flashSave={flashSave}/>}
         {tab==="tips"&&<AdminAngelEdit tips={tips} setTips={setTips} flashSave={flashSave}/>}
-        {tab==="revenue"&&<AdminRevenue requests={requests}/>}
+        {tab==="revenue"&&<AdminAnalytics requests={requests} airbnbBookings={airbnbBookings} costs={costs} setCosts={setCosts} flashSave={flashSave}/>}
         {tab==="pricing"&&<AdminPricing pricing={pricing} setPricing={setPricing} showPricing={showPricing} setShowPricing={setShowPricing} flashSave={flashSave}/>}
         {tab==="ical"&&<AdminIcalSync blockedDates={blockedDates} setBlockedDates={setBlockedDates} airbnbDates={airbnbDates} setAirbnbDates={setAirbnbDates} airbnbBookings={airbnbBookings} setAirbnbBookings={setAirbnbBookings} flashSave={flashSave}/>}
         {tab==="analytics"&&<AdminAnalytics requests={requests} airbnbBookings={airbnbBookings} costs={costs} setCosts={setCosts} flashSave={flashSave}/>}
