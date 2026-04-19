@@ -2410,7 +2410,7 @@ function AdminIcalSync({ blockedDates, setBlockedDates, airbnbDates, setAirbnbDa
 
 // ─── ADMIN VIEW ───────────────────────────────────────────────────────────────
 
-function AdminView({ blockedDates, setBlockedDates, ownerDates, setOwnerDates, pricing, setPricing, info, setInfo, showPricing, setShowPricing, photos, setPhotos, tips, setTips, textBlocks, setTextBlocks, airbnbDates, airbnbBookings, setAirbnbBookings, costs, setCosts, guestbookEntries, setGuestbookEntries, requests, setRequests, onLogout }) {
+function AdminView({ blockedDates, setBlockedDates, ownerDates, setOwnerDates, pricing, setPricing, info, setInfo, showPricing, setShowPricing, photos, setPhotos, tips, setTips, textBlocks, setTextBlocks, airbnbDates, setAirbnbDates, airbnbBookings, setAirbnbBookings, costs, setCosts, guestbookEntries, setGuestbookEntries, requests, setRequests, onLogout }) {
   const [tab,setTab]=useState("calendar");
   const [saved,setSaved]=useState("");
   const [sidebarOpen,setSidebarOpen]=useState(false);
@@ -2603,7 +2603,7 @@ export default function App() {
           photos={photos} setPhotos={setPhotos}
           tips={tips} setTips={setTips}
           textBlocks={textBlocks} setTextBlocks={setTextBlocks}
-          airbnbDates={airbnbDates} airbnbBookings={airbnbBookings} setAirbnbBookings={setAirbnbBookings}
+          airbnbDates={airbnbDates} setAirbnbDates={setAirbnbDates} airbnbBookings={airbnbBookings} setAirbnbBookings={setAirbnbBookings}
           costs={costs} setCosts={setCosts}
           guestbookEntries={guestbookEntries} setGuestbookEntries={setGuestbookEntries}
           requests={requests} setRequests={setRequests}
