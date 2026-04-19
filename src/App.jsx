@@ -2289,7 +2289,7 @@ function AdminIcalSync({ blockedDates, setBlockedDates, airbnbDates, setAirbnbDa
       // Build airbnb bookings list - preserve existing revenue entries
       const existingAirbnb = airbnbBookings || [];
       const newAirbnbBookings = events
-        .filter(ev => !summary.includes("Not available") && !summary.includes("Airbnb (Not available)"))
+        .filter(ev => !ev.summary.includes("Not available") && !ev.summary.includes("Airbnb (Not available)") && ev.summary !== "")
         .map(ev => {
           const checkIn = parseIcalDate(ev.start);
           const checkOut = parseIcalDate(ev.end);
@@ -2391,10 +2391,11 @@ function AdminIcalSync({ blockedDates, setBlockedDates, airbnbDates, setAirbnbDa
               <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
                 <span style={{fontSize:"0.82rem",color:C.onSurfaceVariant,fontWeight:"600"}}>£</span>
                 <input type="number" placeholder="Net payout" value={b.revenue||""}
-                  onChange={async e=>{
-                    const updated=airbnbBookings.map((bk,idx)=>idx===i?{...bk,revenue:e.target.value}:bk);
+                  onChange={e=>{
+                    const val=e.target.value;
+                    const updated=airbnbBookings.map((bk,j)=>j===i?{...bk,revenue:val}:bk);
                     setAirbnbBookings(updated);
-                    await sb.setSetting("airbnb_bookings",updated);
+                    sb.setSetting("airbnb_bookings",updated);
                   }}
                   style={{width:"100px",padding:"6px 10px",border:`1px solid ${C.outlineVariant}`,borderRadius:"6px",fontSize:"0.88rem",fontWeight:"700"}}/>
               </div>
@@ -2454,7 +2455,6 @@ function AdminView({ blockedDates, setBlockedDates, ownerDates, setOwnerDates, p
         {tab==="pricing"&&<AdminPricing pricing={pricing} setPricing={setPricing} showPricing={showPricing} setShowPricing={setShowPricing} flashSave={flashSave}/>}
         {tab==="ical"&&<AdminIcalSync blockedDates={blockedDates} setBlockedDates={setBlockedDates} airbnbDates={airbnbDates} setAirbnbDates={setAirbnbDates} airbnbBookings={airbnbBookings} setAirbnbBookings={setAirbnbBookings} flashSave={flashSave}/>}
         {tab==="analytics"&&<AdminAnalytics requests={requests} airbnbBookings={airbnbBookings} costs={costs} setCosts={setCosts} flashSave={flashSave}/>}
-        {tab==="revenue"&&<AdminAnalytics requests={requests} airbnbBookings={airbnbBookings} costs={costs} setCosts={setCosts} flashSave={flashSave}/>}
         {tab==="textblocks"&&<AdminTextBlocks textBlocks={textBlocks} setTextBlocks={setTextBlocks} flashSave={flashSave}/>}
         {tab==="guestbook"&&<AdminGuestbook entries={guestbookEntries} setEntries={setGuestbookEntries} flashSave={flashSave}/>}
         {tab==="textblocks"&&<AdminTextBlocks textBlocks={textBlocks} setTextBlocks={setTextBlocks} flashSave={flashSave}/>}
@@ -2604,6 +2604,9 @@ export default function App() {
           photos={photos} setPhotos={setPhotos}
           tips={tips} setTips={setTips}
           textBlocks={textBlocks} setTextBlocks={setTextBlocks}
+          airbnbDates={airbnbDates} airbnbBookings={airbnbBookings} setAirbnbBookings={setAirbnbBookings}
+          costs={costs} setCosts={setCosts}
+          guestbookEntries={guestbookEntries} setGuestbookEntries={setGuestbookEntries}
           requests={requests} setRequests={setRequests}
           onLogout={()=>{setIsAdmin(false);setView("guest");sb.clearToken();}}
         />
