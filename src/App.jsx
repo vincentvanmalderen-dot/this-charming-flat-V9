@@ -2305,7 +2305,7 @@ function AdminIcalSync({ blockedDates, setBlockedDates, airbnbDates, setAirbnbDa
 
 // ─── ADMIN VIEW ───────────────────────────────────────────────────────────────
 
-function AdminView({ blockedDates, setBlockedDates, ownerDates, setOwnerDates, pricing, setPricing, info, setInfo, showPricing, setShowPricing, photos, setPhotos, tips, setTips, textBlocks, setTextBlocks, requests, setRequests, onLogout }) {
+function AdminView({ blockedDates, setBlockedDates, ownerDates, setOwnerDates, pricing, setPricing, info, setInfo, showPricing, setShowPricing, photos, setPhotos, tips, setTips, textBlocks, setTextBlocks, airbnbDates, airbnbBookings, setAirbnbBookings, costs, setCosts, guestbookEntries, setGuestbookEntries, requests, setRequests, onLogout }) {
   const [tab,setTab]=useState("calendar");
   const [saved,setSaved]=useState("");
   const [sidebarOpen,setSidebarOpen]=useState(false);
