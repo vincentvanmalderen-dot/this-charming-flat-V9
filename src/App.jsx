@@ -168,9 +168,13 @@ function formatDate(d) {
   if (!d) return "";
   return new Date(d).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" });
 }
-function dateRange(start, end) {
+function dateRange(start, end, includeEnd=true) {
   const dates=[], cur=new Date(start), last=new Date(end);
-  while(cur<=last){ dates.push(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+1); }
+  // By default includes end date. For Airbnb-style blocking, pass includeEnd=false
+  while(includeEnd ? cur<=last : cur<last){ 
+    dates.push(cur.toISOString().slice(0,10)); 
+    cur.setDate(cur.getDate()+1); 
+  }
   return dates;
 }
 
@@ -232,12 +236,13 @@ function Logo({ size=48 }) {
 
 // ─── CALENDAR ─────────────────────────────────────────────────────────────────
 
-function Calendar({ blockedDates, ownerDates=[], onSelectRange, selectedStart, selectedEnd, readOnly=false, compact=false }) {
+function Calendar({ blockedDates, ownerDates=[], airbnbDates=[], onSelectRange, selectedStart, selectedEnd, readOnly=false, compact=false }) {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [hover, setHover] = useState(null);
   const blockedSet = new Set(blockedDates);
+  const airbnbSet = new Set(airbnbDates);
   const ownerSet = new Set(ownerDates);
 
   function toISO(y,m,d){ return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
@@ -246,6 +251,7 @@ function Calendar({ blockedDates, ownerDates=[], onSelectRange, selectedStart, s
 
   function getState(iso){
     const d=new Date(iso), todayISO=today.toISOString().slice(0,10);
+    if(airbnbSet.has(iso)) return "airbnb";
     if(blockedSet.has(iso)) return "blocked";
     if(ownerSet.has(iso)) return "owner";
     if(d<new Date(todayISO)) return "past";
@@ -256,7 +262,7 @@ function Calendar({ blockedDates, ownerDates=[], onSelectRange, selectedStart, s
   }
 
   function handleClick(iso){
-    if(readOnly||blockedSet.has(iso)||ownerSet.has(iso)) return;
+    if(readOnly||blockedSet.has(iso)||ownerSet.has(iso)||airbnbSet.has(iso)) return;
     if(new Date(iso)<new Date(today.toISOString().slice(0,10))) return;
     onSelectRange(iso);
   }
@@ -293,8 +299,8 @@ function Calendar({ blockedDates, ownerDates=[], onSelectRange, selectedStart, s
         {Array(days).fill(null).map((_,i)=>{
           const day=i+1, iso=toISO(viewYear,viewMonth,day), state=getState(iso);
           const isWknd=((start+i)%7)>=5;
-          const bg=state==="blocked"?"#ffdad5":state==="owner"?"#fff3cd":state==="past"?"transparent":state==="selected"?C.secondary:state==="range"||state==="hover"?"#dfe0ff":isWknd?C.surfaceContainerLow:C.surfaceContainerLowest;
-          const color=state==="blocked"?"#930006":state==="owner"?"#856404":state==="past"?"#c0b8b0":state==="selected"?"white":C.onSurface;
+          const bg=state==="airbnb"?"#d4edda":state==="blocked"?"#ffdad5":state==="owner"?"#fff3cd":state==="past"?"transparent":state==="selected"?C.secondary:state==="range"||state==="hover"?"#dfe0ff":isWknd?C.surfaceContainerLow:C.surfaceContainerLowest;
+          const color=state==="airbnb"?"#155724":state==="blocked"?"#930006":state==="owner"?"#856404":state==="past"?"#c0b8b0":state==="selected"?"white":C.onSurface;
           const fw=state==="selected"?"700":"400";
           return (
             <div key={iso}
@@ -386,6 +392,7 @@ function GuestNav({ activeTab, setTab, showPricing }) {
     {id:"availability",label:"Availability"},
     ...(showPricing?[{id:"pricing",label:"Pricing"}]:[]),
     {id:"about",label:"About the Flat"},
+    {id:"guestbook",label:"Guestbook"},
     {id:"book",label:"Book Now",cta:true},
   ];
   const allTabs = [...tabs, {id:"privacy",label:"Privacy Policy",hidden:true}];
@@ -586,7 +593,7 @@ function GuestHome({ info, photos, setTab, tips }) {
 
 // ─── GUEST: AVAILABILITY ──────────────────────────────────────────────────────
 
-function GuestAvailability({ blockedDates, ownerDates, setTab }) {
+function GuestAvailability({ blockedDates, ownerDates, airbnbDates, setTab }) {
   return (
     <div className="fade-in" style={{padding:"120px clamp(20px,5vw,48px) 80px",maxWidth:"1280px",margin:"0 auto"}}>
       <div style={{marginBottom:"48px"}}>
@@ -599,7 +606,7 @@ function GuestAvailability({ blockedDates, ownerDates, setTab }) {
       </div>
       <div style={{maxWidth:"480px"}}>
         <div className="card" style={{padding:"32px"}}>
-          <Calendar blockedDates={blockedDates} ownerDates={ownerDates} onSelectRange={()=>{}} readOnly={true}/>
+          <Calendar blockedDates={blockedDates} ownerDates={ownerDates} airbnbDates={airbnbDates} onSelectRange={()=>{}} readOnly={true}/>
         </div>
       </div>
       <div style={{marginTop:"40px"}}>
@@ -849,7 +856,7 @@ function GuestBook({ blockedDates, ownerDates, pricing, onSubmitRequest }) {
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:"32px"}}>
         <div className="card" style={{padding:"32px"}}>
           <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",marginBottom:"20px",fontSize:"1rem",textTransform:"uppercase",letterSpacing:"0.06em",color:C.onSurfaceVariant}}>① Select dates</h3>
-          <Calendar blockedDates={blockedDates} ownerDates={ownerDates} onSelectRange={handleRange} selectedStart={selStart} selectedEnd={selEnd}/>
+          <Calendar blockedDates={blockedDates} ownerDates={ownerDates} airbnbDates={airbnbDates} onSelectRange={handleRange} selectedStart={selStart} selectedEnd={selEnd}/>
           {selStart&&!selEnd&&<p style={{marginTop:"12px",fontSize:"0.82rem",color:C.onSurfaceVariant}}>Now click your check-out date</p>}
           {pc&&(
             <div style={{marginTop:"16px",background:C.surfaceContainerLow,borderRadius:"10px",padding:"16px"}}>
@@ -892,6 +899,138 @@ function GuestBook({ blockedDates, ownerDates, pricing, onSubmitRequest }) {
   );
 }
 
+
+
+// ─── ADMIN: GUESTBOOK ────────────────────────────────────────────────────────
+
+function AdminGuestbook({ entries, setEntries, flashSave }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({ name: "", date: new Date().toISOString().slice(0,10), story: "", nights: "" });
+
+  async function addEntry() {
+    if (!form.name || !form.story) return;
+    const next = [...(entries||[]), { ...form, id: Date.now() }];
+    setEntries(next);
+    await sb.setSetting("guestbook", next);
+    setShowAdd(false);
+    setForm({ name: "", date: new Date().toISOString().slice(0,10), story: "", nights: "" });
+    flashSave("Guestbook entry added ✓");
+  }
+
+  async function removeEntry(id) {
+    const next = (entries||[]).filter(e => e.id !== id);
+    setEntries(next);
+    await sb.setSetting("guestbook", next);
+    flashSave("Entry removed ✓");
+  }
+
+  return (
+    <div className="slide-in">
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px",flexWrap:"wrap",gap:"12px"}}>
+        <div>
+          <h2 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1.3rem"}}>Guestbook</h2>
+          <p style={{fontSize:"0.85rem",color:C.onSurfaceVariant,marginTop:"4px"}}>Add guest stories — they appear on the public Guestbook tab.</p>
+        </div>
+        <button onClick={()=>setShowAdd(s=>!s)} className="btn-primary" style={{display:"flex",alignItems:"center",gap:"6px",fontSize:"0.85rem"}}>
+          <Icon name="add" size={16}/>Add entry
+        </button>
+      </div>
+
+      {showAdd&&(
+        <div className="card" style={{padding:"24px",marginBottom:"20px"}}>
+          <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem",marginBottom:"16px"}}>New guestbook entry</h3>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"12px"}}>
+            <div>
+              <label style={{display:"block",fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"4px"}}>Guest name</label>
+              <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Mick & Sarah" className="input-field"/>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"4px"}}>Date of stay</label>
+              <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} className="input-field"/>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"4px"}}>Nights stayed</label>
+              <input type="number" value={form.nights} onChange={e=>setForm(f=>({...f,nights:e.target.value}))} placeholder="e.g. 3" className="input-field"/>
+            </div>
+          </div>
+          <div style={{marginBottom:"12px"}}>
+            <label style={{display:"block",fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"4px"}}>Their story</label>
+            <textarea value={form.story} onChange={e=>setForm(f=>({...f,story:e.target.value}))}
+              placeholder="Paste their message here..." className="input-field" style={{height:"120px",resize:"vertical"}}/>
+          </div>
+          <div style={{display:"flex",gap:"8px",justifyContent:"flex-end"}}>
+            <button onClick={()=>setShowAdd(false)} className="btn-ghost" style={{fontSize:"0.85rem"}}>Cancel</button>
+            <button onClick={addEntry} className="btn-primary" style={{fontSize:"0.85rem"}}>Save entry</button>
+          </div>
+        </div>
+      )}
+
+      {(!entries||entries.length===0)
+        ? <div className="card" style={{padding:"32px",textAlign:"center",color:C.onSurfaceVariant}}>No entries yet. Add your first guest story!</div>
+        : [...(entries||[])].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(e=>(
+          <div key={e.id} className="card" style={{padding:"20px",marginBottom:"12px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"12px"}}>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"8px",flexWrap:"wrap"}}>
+                  <span style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem"}}>{e.name}</span>
+                  <span style={{fontSize:"0.78rem",color:C.onSurfaceVariant}}>{formatDate(e.date)}</span>
+                  {e.nights&&<span style={{fontSize:"0.72rem",background:C.primaryFixed,color:C.onPrimaryFixed,padding:"2px 8px",borderRadius:"999px",fontWeight:"700"}}>{e.nights} nights</span>}
+                </div>
+                <p style={{color:C.onSurfaceVariant,lineHeight:"1.7",fontSize:"0.88rem",whiteSpace:"pre-wrap"}}>{e.story}</p>
+              </div>
+              <button onClick={()=>removeEntry(e.id)} style={{background:"none",border:"none",color:C.error,cursor:"pointer",fontSize:"0.8rem",flexShrink:0}}>✕ Remove</button>
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  );
+}
+
+// ─── GUEST: GUESTBOOK ────────────────────────────────────────────────────────
+
+function GuestGuestbook({ entries }) {
+  return (
+    <div className="fade-in" style={{padding:"120px clamp(20px,5vw,48px) 80px",maxWidth:"860px",margin:"0 auto"}}>
+      <div style={{marginBottom:"48px"}}>
+        <span style={{display:"inline-flex",alignItems:"center",gap:"8px",background:C.primaryFixed,color:C.onPrimaryFixed,padding:"4px 16px",borderRadius:"999px",fontSize:"0.72rem",fontWeight:"800",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:"16px"}}>
+          <span style={{width:"8px",height:"8px",borderRadius:"50%",background:C.primary}}/>
+          Guestbook
+        </span>
+        <h1 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:"clamp(2rem,5vw,3rem)",fontWeight:"800",letterSpacing:"-0.02em",marginBottom:"12px"}}>What our guests say</h1>
+        <p style={{color:C.onSurfaceVariant,fontSize:"1rem",lineHeight:"1.7",maxWidth:"560px"}}>Real stories from people who've stayed at This Charming Flat.</p>
+      </div>
+
+      {(!entries||entries.length===0)
+        ? <div style={{textAlign:"center",color:C.onSurfaceVariant,padding:"60px 0",fontSize:"1rem"}}>
+            <div style={{fontSize:"2rem",marginBottom:"16px"}}>📖</div>
+            <p>No guest stories yet — check back soon!</p>
+          </div>
+        : [...(entries||[])].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((e,i)=>(
+          <div key={e.id} style={{
+            background:C.surfaceContainerLowest,borderRadius:"16px",
+            padding:"clamp(24px,4vw,40px)",marginBottom:"20px",
+            borderLeft:`4px solid ${C.primary}`,position:"relative"
+          }}>
+            <div style={{fontSize:"3rem",color:C.primaryFixed,position:"absolute",top:"16px",right:"24px",lineHeight:1,fontFamily:"Georgia,serif",opacity:0.4}}>"</div>
+            <p style={{fontSize:"1rem",lineHeight:"1.8",color:C.onSurface,whiteSpace:"pre-wrap",marginBottom:"20px",fontStyle:"italic"}}>{e.story}</p>
+            <div style={{display:"flex",alignItems:"center",gap:"12px",flexWrap:"wrap"}}>
+              <div style={{width:"36px",height:"36px",borderRadius:"50%",background:`linear-gradient(135deg,${C.primary},${C.secondary})`,display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:"800",fontSize:"0.9rem",flexShrink:0}}>
+                {e.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"0.9rem"}}>{e.name}</div>
+                <div style={{fontSize:"0.78rem",color:C.onSurfaceVariant}}>
+                  {formatDate(e.date)}{e.nights?` · ${e.nights} nights`:""}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  );
+}
 
 // ─── GUEST: PRIVACY PAGE ─────────────────────────────────────────────────────
 
@@ -1012,6 +1151,7 @@ function AdminSidebar({ activeTab, setTab, pendingCount, sidebarOpen, setSidebar
     {id:"ical",icon:"sync",label:"Airbnb Sync"},
     {id:"revenue",icon:"bar_chart",label:"Revenue"},
     {id:"textblocks",icon:"article",label:"About Blocks"},
+    {id:"guestbook",icon:"auto_stories",label:"Guestbook"},
     {id:"settings",icon:"settings",label:"Flat Settings"},
   ];
   return (
@@ -1063,7 +1203,7 @@ function AdminSidebar({ activeTab, setTab, pendingCount, sidebarOpen, setSidebar
 
 // ─── ADMIN: CALENDAR TAB ──────────────────────────────────────────────────────
 
-function AdminCalendar({ blockedDates, setBlockedDates, ownerDates, setOwnerDates, requests, flashSave }) {
+function AdminCalendar({ blockedDates, setBlockedDates, ownerDates, setOwnerDates, airbnbDates, requests, flashSave }) {
   const [selStart,setSelStart]=useState(null);
   const [selEnd,setSelEnd]=useState(null);
   const [note,setNote]=useState("");
@@ -1138,7 +1278,7 @@ function AdminCalendar({ blockedDates, setBlockedDates, ownerDates, setOwnerDate
               </>}
             </div>
           </div>
-          <Calendar blockedDates={blockedDates} ownerDates={ownerDates} onSelectRange={handleRange} selectedStart={selStart} selectedEnd={selEnd}/>
+          <Calendar blockedDates={blockedDates} ownerDates={ownerDates} airbnbDates={airbnbDates} onSelectRange={handleRange} selectedStart={selStart} selectedEnd={selEnd}/>
           {selStart&&selEnd&&(
             <div style={{marginTop:"16px",display:"flex",gap:"12px",alignItems:"center"}}>
               <input placeholder="Note (e.g. Airbnb booking)" value={note} onChange={e=>setNote(e.target.value)}
@@ -1200,6 +1340,15 @@ function AdminRequests({ requests, setRequests, blockedDates, setBlockedDates, f
   const [emailAmount,setEmailAmount]=useState("");
   const [emailSending,setEmailSending]=useState(false);
   const [emailSent,setEmailSent]=useState(false);
+  const [editModal,setEditModal]=useState(null);
+  const [editForm,setEditForm]=useState({});
+
+  async function updateBooking(r, updates) {
+    await sb.updateRequest(r.id, r.status, updates);
+    setRequests(prev => prev.map(req => req.id === r.id ? {...req, ...updates} : req));
+    setEditModal(null);
+    flashSave("Booking updated ✓");
+  }
 
   async function confirm(r){
     await sb.updateRequest(r.id,"confirmed");
@@ -1254,6 +1403,29 @@ function AdminRequests({ requests, setRequests, blockedDates, setBlockedDates, f
 
   return (
     <div className="slide-in">
+
+      {/* Edit Booking Modal */}
+      {editModal&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:"12px"}}
+          onClick={()=>setEditModal(null)}>
+          <div className="card" style={{width:"100%",maxWidth:"480px",padding:"24px",maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1.1rem",marginBottom:"4px"}}>Edit booking</h3>
+            <p style={{fontSize:"0.85rem",color:C.onSurfaceVariant,marginBottom:"20px"}}>{editModal.name}</p>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"16px"}}>
+              {[["Check-in","check_in","date"],["Check-out","check_out","date"],["Nights","nights","number"],["Amount (£)","total","number"],["Name","name","text"],["Email","email","email"]].map(([label,field,type])=>(
+                <div key={field}>
+                  <label style={{display:"block",fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"4px"}}>{label}</label>
+                  <input type={type} value={editForm[field]||""} onChange={e=>setEditForm(f=>({...f,[field]:e.target.value}))} className="input-field" style={{fontSize:"0.88rem"}}/>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:"8px",justifyContent:"flex-end"}}>
+              <button onClick={()=>setEditModal(null)} className="btn-ghost" style={{padding:"8px 16px",fontSize:"0.85rem"}}>Cancel</button>
+              <button onClick={()=>updateBooking(editModal,{check_in:editForm.check_in,check_out:editForm.check_out,nights:Number(editForm.nights),total:Number(editForm.total),name:editForm.name,email:editForm.email})} className="btn-primary" style={{padding:"8px 20px",fontSize:"0.85rem"}}>Save changes</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Email Modal */}
       {emailModal&&(
@@ -1693,294 +1865,255 @@ function AdminAngelEdit({ tips, setTips, flashSave }) {
 
 // ─── ADMIN: ANALYTICS ────────────────────────────────────────────────────────
 
-function AdminAnalytics({ requests }) {
+const MONTHLY_RENT = 1652.99;
+
+function AdminAnalytics({ requests, airbnbBookings, costs, setCosts, flashSave }) {
   const [year, setYear] = useState(new Date().getFullYear());
+  const [view, setView] = useState("combined"); // revenue | costs | combined
+  const [showAddCost, setShowAddCost] = useState(false);
+  const [newCost, setNewCost] = useState({ date: new Date().toISOString().slice(0,10), description: "", amount: "", type: "cleaning" });
 
   const confirmed = requests.filter(r => r.status === "confirmed" && r.total);
+  const airbnbRev = (airbnbBookings||[]).filter(b => b.revenue && Number(b.revenue) > 0);
 
-  // Build monthly data for selected year
-  const months = Array.from({length:12}, (_,i) => {
-    const monthName = SHORT_MONTHS[i];
-    const bookings = confirmed.filter(r => {
-      const d = new Date(r.check_in);
-      return d.getFullYear() === year && d.getMonth() === i;
-    });
-    const income = bookings.reduce((sum, r) => sum + Number(r.total), 0);
-    return { month: monthName, bookings: bookings.length, income };
-  });
-
-  const yearTotal = months.reduce((s, m) => s + m.income, 0);
-  const yearBookings = months.reduce((s, m) => s + m.bookings, 0);
-  const avgPerBooking = yearBookings > 0 ? Math.round(yearTotal / yearBookings) : 0;
-  const maxIncome = Math.max(...months.map(m => m.income), 1);
-
-  // All-time stats
-  const allYears = [...new Set(confirmed.map(r => new Date(r.check_in).getFullYear()))].sort((a,b) => b-a);
-  const allTimeTotal = confirmed.reduce((s, r) => s + Number(r.total), 0);
-
-  // Available years for selector
-  const yearOptions = allYears.length > 0 ? allYears : [new Date().getFullYear()];
-  if (!yearOptions.includes(year)) yearOptions.push(year);
-  yearOptions.sort((a,b) => b-a);
-
-  return (
-    <div className="slide-in">
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"24px",flexWrap:"wrap",gap:"12px"}}>
-        <h2 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1.3rem"}}>Income Overview</h2>
-        <select value={year} onChange={e=>setYear(Number(e.target.value))} className="input-field" style={{width:"auto",padding:"8px 16px"}}>
-          {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-        </select>
-      </div>
-
-      {/* Summary cards */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"16px",marginBottom:"24px"}}>
-        {[
-          ["Total income",`£${yearTotal.toLocaleString()}`,`${year}`,"payments"],
-          ["Bookings",yearBookings,`confirmed in ${year}`,"bookmark"],
-          ["Avg per booking",`£${avgPerBooking}`,"per stay","calculate"],
-          ["All-time total",`£${allTimeTotal.toLocaleString()}`,`${confirmed.length} bookings ever`,"savings"],
-        ].map(([label,value,sub,icon])=>(
-          <div key={label} className="card" style={{padding:"20px"}}>
-            <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}}>
-              <Icon name={icon} size={18} style={{color:C.secondary}}/>
-              <span style={{fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</span>
-            </div>
-            <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"800",fontSize:"1.6rem",color:C.onSurface}}>{value}</div>
-            <div style={{fontSize:"0.75rem",color:C.onSurfaceVariant,marginTop:"2px"}}>{sub}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Monthly bar chart */}
-      <div className="card" style={{padding:"24px",marginBottom:"24px"}}>
-        <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem",marginBottom:"20px"}}>Monthly income — {year}</h3>
-        <div style={{display:"flex",alignItems:"flex-end",gap:"8px",height:"180px"}}>
-          {months.map((m,i) => {
-            const height = maxIncome > 0 ? Math.max((m.income/maxIncome)*160, m.income>0?8:0) : 0;
-            const isCurrent = i === new Date().getMonth() && year === new Date().getFullYear();
-            return (
-              <div key={m.month} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:"4px"}}>
-                <div style={{fontSize:"0.65rem",fontWeight:"700",color:m.income>0?C.secondary:C.onSurfaceVariant}}>
-                  {m.income>0?`£${m.income}`:""}
-                </div>
-                <div style={{
-                  width:"100%",height:`${height}px`,minHeight: m.income>0?"8px":"2px",
-                  background: isCurrent?C.primary:m.income>0?C.secondary:C.surfaceContainerHigh,
-                  borderRadius:"4px 4px 0 0",transition:"height 0.3s",
-                  position:"relative",cursor:m.income>0?"default":"default"
-                }}/>
-                <div style={{fontSize:"0.65rem",color:isCurrent?C.primary:C.onSurfaceVariant,fontWeight:isCurrent?"700":"400"}}>{m.month}</div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Booking breakdown table */}
-      <div className="card" style={{padding:"24px"}}>
-        <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem",marginBottom:"16px"}}>All confirmed bookings — {year}</h3>
-        {confirmed.filter(r=>new Date(r.check_in).getFullYear()===year).length===0
-          ? <p style={{color:C.onSurfaceVariant,fontSize:"0.88rem"}}>No confirmed bookings in {year} yet.</p>
-          : (
-          <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"0.83rem"}}>
-              <thead>
-                <tr style={{borderBottom:`2px solid ${C.surfaceContainerHigh}`}}>
-                  {["Guest","Check-in","Check-out","Nights","Amount","Payment","Season"].map(h=>(
-                    <th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:"0.7rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em"}}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {confirmed
-                  .filter(r=>new Date(r.check_in).getFullYear()===year)
-                  .sort((a,b)=>new Date(a.check_in)-new Date(b.check_in))
-                  .map((r,i)=>(
-                  <tr key={r.id} style={{borderBottom:`1px solid ${C.surfaceContainerLow}`,background:i%2===0?"transparent":C.surfaceContainerLow}}>
-                    <td style={{padding:"10px 12px",fontWeight:"600"}}>{r.name}</td>
-                    <td style={{padding:"10px 12px"}}>{formatDate(r.check_in)}</td>
-                    <td style={{padding:"10px 12px"}}>{formatDate(r.check_out)}</td>
-                    <td style={{padding:"10px 12px"}}>{r.nights}</td>
-                    <td style={{padding:"10px 12px",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",color:C.primary}}>£{r.total}</td>
-                    <td style={{padding:"10px 12px"}}>
-                      <span style={{fontSize:"0.7rem",padding:"2px 8px",borderRadius:"999px",fontWeight:"700",
-                        background:r.paid?"#e8f5e8":"#fff3cd",
-                        color:r.paid?"#1a5a1a":"#856404"}}>
-                        {r.paid?"✓ Paid":"Pending"}
-                      </span>
-                    </td>
-                    <td style={{padding:"10px 12px"}}>
-                      <span style={{fontSize:"0.7rem",padding:"2px 8px",borderRadius:"999px",fontWeight:"700",
-                        background:r.season==="peak"?"#ffdad5":r.season==="mid"?"#c8dfc8":"#e3e3de",
-                        color:r.season==="peak"?C.primary:r.season==="mid"?"#2a5a2a":"#5a4a30"}}>
-                        {r.season||"—"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr style={{borderTop:`2px solid ${C.surfaceContainerHigh}`,background:C.surfaceContainerLow}}>
-                  <td colSpan="4" style={{padding:"10px 12px",fontWeight:"700",fontSize:"0.85rem"}}>Total {year}</td>
-                  <td style={{padding:"10px 12px",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"800",fontSize:"1rem",color:C.primary}}>
-                    £{confirmed.filter(r=>new Date(r.check_in).getFullYear()===year).reduce((s,r)=>s+Number(r.total),0).toLocaleString()}
-                  </td>
-                  <td/>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-
-// ─── ADMIN: REVENUE ───────────────────────────────────────────────────────────
-
-function AdminRevenue({ requests }) {
-  const [viewYear, setViewYear] = useState(new Date().getFullYear());
-
-  const confirmed = requests.filter(r => r.status === "confirmed" && r.total);
-
-  // Group by year and month
-  function getMonthlyData(year) {
-    const months = Array(12).fill(0).map((_,i) => ({
-      month: i,
-      label: SHORT_MONTHS[i],
-      total: 0,
-      bookings: 0,
-      nights: 0,
-    }));
-    confirmed.forEach(r => {
-      const d = new Date(r.check_in);
-      if (d.getFullYear() === year) {
-        months[d.getMonth()].total += Number(r.total) || 0;
-        months[d.getMonth()].bookings += 1;
-        months[d.getMonth()].nights += Number(r.nights) || 0;
-      }
-    });
-    return months;
+  // Get all revenue for a month (TCF + Airbnb)
+  function getMonthRevenue(y, m) {
+    const tcf = confirmed.filter(r => { const d=new Date(r.check_in); return d.getFullYear()===y&&d.getMonth()===m; })
+      .reduce((s,r)=>s+Number(r.total),0);
+    const airbnb = airbnbRev.filter(b => { const d=new Date(b.checkIn); return d.getFullYear()===y&&d.getMonth()===m; })
+      .reduce((s,b)=>s+Number(b.revenue),0);
+    return { tcf, airbnb, total: tcf + airbnb };
   }
 
-  const monthlyData = getMonthlyData(viewYear);
-  const yearTotal = monthlyData.reduce((s,m) => s + m.total, 0);
-  const yearBookings = monthlyData.reduce((s,m) => s + m.bookings, 0);
-  const yearNights = monthlyData.reduce((s,m) => s + m.nights, 0);
-  const maxVal = Math.max(...monthlyData.map(m => m.total), 1);
+  function getMonthCosts(y, m) {
+    return (costs||[]).filter(c => { const d=new Date(c.date); return d.getFullYear()===y&&d.getMonth()===m; })
+      .reduce((s,c)=>s+Number(c.amount),0);
+  }
 
-  // All years that have bookings
-  const years = [...new Set(confirmed.map(r => new Date(r.check_in).getFullYear()))].sort((a,b) => b-a);
-  if (!years.includes(viewYear) && years.length > 0) years.unshift(viewYear);
+  const months = Array.from({length:12}, (_,i) => {
+    const rev = getMonthRevenue(year, i);
+    const cost = getMonthCosts(year, i);
+    return { month: SHORT_MONTHS[i], ...rev, costs: cost, net: rev.total - cost };
+  });
 
-  // Recent bookings list
-  const recentBookings = [...confirmed].sort((a,b) => new Date(b.check_in) - new Date(a.check_in)).slice(0,10);
+  const yearRev = months.reduce((s,m)=>s+m.total,0);
+  const yearCosts = months.reduce((s,m)=>s+m.costs,0);
+  const yearNet = yearRev - yearCosts;
+  const maxBar = Math.max(...months.map(m=>Math.max(m.total,m.costs)),1);
+
+  // Current month to Elina calculation
+  const now = new Date();
+  const curMonthRev = getMonthRevenue(now.getFullYear(), now.getMonth());
+  const toElina = Math.max(0, MONTHLY_RENT - curMonthRev.total);
+  const surplus = curMonthRev.total - MONTHLY_RENT;
+
+  async function addCost() {
+    if (!newCost.date || !newCost.amount || !newCost.description) return;
+    const next = [...(costs||[]), {...newCost, id: Date.now(), amount: Number(newCost.amount)}];
+    setCosts(next);
+    await sb.setSetting("costs", next);
+    setShowAddCost(false);
+    setNewCost({ date: new Date().toISOString().slice(0,10), description: "", amount: "", type: "cleaning" });
+    flashSave("Cost added ✓");
+  }
+
+  async function removeCost(id) {
+    const next = (costs||[]).filter(c => c.id !== id);
+    setCosts(next);
+    await sb.setSetting("costs", next);
+    flashSave("Cost removed ✓");
+  }
+
+  const yearOptions = [...new Set([
+    ...confirmed.map(r => new Date(r.check_in).getFullYear()),
+    ...airbnbRev.map(b => new Date(b.checkIn).getFullYear()),
+    now.getFullYear()
+  ])].sort((a,b)=>b-a);
 
   return (
     <div className="slide-in">
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"24px",flexWrap:"wrap",gap:"12px"}}>
-        <h2 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1.3rem"}}>Revenue Overview</h2>
-        <div style={{display:"flex",gap:"6px"}}>
-          {[viewYear-1, viewYear, viewYear+1].map(y => (
-            <button key={y} onClick={() => setViewYear(y)}
-              style={{padding:"6px 14px",borderRadius:"999px",border:"none",fontWeight:"600",fontSize:"0.82rem",cursor:"pointer",
-                background: viewYear===y ? C.secondary : C.surfaceContainerLow,
-                color: viewYear===y ? "white" : C.onSurfaceVariant}}>
-              {y}
+        <h2 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1.3rem"}}>Revenue & Costs</h2>
+        <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+          {["revenue","costs","combined"].map(v=>(
+            <button key={v} onClick={()=>setView(v)} style={{padding:"6px 14px",borderRadius:"999px",border:"none",fontWeight:"600",fontSize:"0.78rem",cursor:"pointer",
+              background:view===v?C.secondary:"transparent",color:view===v?"white":C.onSurfaceVariant,
+              border:view===v?"none":`1px solid ${C.outlineVariant}`}}>
+              {v.charAt(0).toUpperCase()+v.slice(1)}
             </button>
           ))}
+          <select value={year} onChange={e=>setYear(Number(e.target.value))} className="input-field" style={{width:"auto",padding:"6px 12px"}}>
+            {yearOptions.map(y=><option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Pay Elina this month card */}
+      <div style={{background:surplus>=0?"linear-gradient(135deg,#1a6a1a,#2a8a2a)":"linear-gradient(135deg,#b6000a,#dc241f)",borderRadius:"12px",padding:"20px 24px",marginBottom:"20px",color:"white",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"12px"}}>
+        <div>
+          <div style={{fontSize:"0.72rem",fontWeight:"700",opacity:0.8,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"4px"}}>
+            Pay Elina on the 5th — {MONTHS[now.getMonth()]} {now.getFullYear()}
+          </div>
+          <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"800",fontSize:"1.8rem"}}>
+            £{Math.abs(toElina > 0 ? toElina : 0).toFixed(2)}
+          </div>
+          <div style={{fontSize:"0.8rem",opacity:0.85,marginTop:"4px"}}>
+            Rent £{MONTHLY_RENT.toFixed(2)} − income £{curMonthRev.total.toFixed(2)} = {surplus>=0?"surplus £"+surplus.toFixed(2):"still owe £"+toElina.toFixed(2)}
+          </div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontSize:"0.72rem",opacity:0.7,marginBottom:"4px"}}>This month income</div>
+          <div style={{fontSize:"1.1rem",fontWeight:"700"}}>TCF £{curMonthRev.tcf.toFixed(2)}</div>
+          <div style={{fontSize:"1.1rem",fontWeight:"700"}}>Airbnb £{curMonthRev.airbnb.toFixed(2)}</div>
         </div>
       </div>
 
       {/* Summary cards */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"16px",marginBottom:"24px"}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"12px",marginBottom:"20px"}}>
         {[
-          ["payments","Total revenue",`£${yearTotal.toLocaleString()}`,"#1a6a1a"],
-          ["bookmark","Bookings",yearBookings,"#1a3a7a"],
-          ["bedtime","Nights booked",yearNights,C.onSurfaceVariant],
-          ["trending_up","Avg per booking", yearBookings>0?`£${Math.round(yearTotal/yearBookings)}`:"-",C.primary],
-        ].map(([icon,label,val,color])=>(
-          <div key={label} style={{background:"white",borderRadius:"12px",padding:"20px",boxShadow:"0 20px 40px rgba(26,28,25,0.06)"}}>
-            <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"8px"}}>
-              <Icon name={icon} size={18} style={{color}}/>
-              <span style={{fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</span>
-            </div>
-            <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"800",fontSize:"1.6rem",color}}>{val}</div>
+          ["Total revenue",`£${yearRev.toLocaleString()}`,`${year}`,C.secondary],
+          ["Total costs",`£${yearCosts.toLocaleString()}`,`${year}`,"#856404"],
+          ["Net profit",`£${yearNet.toLocaleString()}`,`after costs`,yearNet>=0?"#155724":C.error],
+          ["Airbnb revenue",`£${airbnbRev.filter(b=>new Date(b.checkIn).getFullYear()===year).reduce((s,b)=>s+Number(b.revenue),0).toLocaleString()}`,`${year}`,"#155724"],
+        ].map(([label,value,sub,color])=>(
+          <div key={label} style={{background:C.surfaceContainerLowest,borderRadius:"10px",padding:"16px",boxShadow:"0 2px 8px rgba(26,28,25,0.06)"}}>
+            <div style={{fontSize:"0.7rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"6px"}}>{label}</div>
+            <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"800",fontSize:"1.4rem",color}}>{value}</div>
+            <div style={{fontSize:"0.72rem",color:C.onSurfaceVariant,marginTop:"2px"}}>{sub}</div>
           </div>
         ))}
       </div>
 
       {/* Bar chart */}
-      <div className="card" style={{padding:"32px",marginBottom:"24px"}}>
-        <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem",marginBottom:"24px"}}>Monthly revenue {viewYear}</h3>
-        <div style={{display:"flex",alignItems:"flex-end",gap:"6px",height:"180px",position:"relative"}}>
-          {monthlyData.map((m,i) => {
-            const pct = maxVal > 0 ? (m.total/maxVal)*100 : 0;
-            const isCurrentMonth = new Date().getMonth()===i && new Date().getFullYear()===viewYear;
+      <div className="card" style={{padding:"24px",marginBottom:"20px"}}>
+        <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem",marginBottom:"16px"}}>
+          {view==="revenue"?"Monthly Revenue":view==="costs"?"Monthly Costs":"Revenue vs Costs"} — {year}
+        </h3>
+        <div style={{display:"flex",alignItems:"flex-end",gap:"6px",height:"160px",paddingBottom:"4px"}}>
+          {months.map((m,i)=>{
+            const revH = maxBar>0?(m.total/maxBar)*140:0;
+            const costH = maxBar>0?(m.costs/maxBar)*140:0;
+            const isCur = i===now.getMonth()&&year===now.getFullYear();
             return (
-              <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:"6px",height:"100%",justifyContent:"flex-end"}}>
-                <div style={{fontSize:"0.65rem",fontWeight:"700",color:m.total>0?C.secondary:C.outlineVariant}}>
-                  {m.total>0?`£${m.total}`:"-"}
+              <div key={m.month} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:"2px"}}>
+                <div style={{fontSize:"0.6rem",fontWeight:"700",color:C.onSurfaceVariant,marginBottom:"2px"}}>
+                  {view!=="costs"&&m.total>0?`£${Math.round(m.total)}`:""}
                 </div>
-                <div style={{
-                  width:"100%",borderRadius:"6px 6px 0 0",
-                  background: isCurrentMonth ? `linear-gradient(135deg,${C.primary},${C.primaryContainer})` : m.total>0 ? C.secondary : C.surfaceContainerHigh,
-                  height:`${Math.max(pct,2)}%`,
-                  transition:"height 0.4s ease",
-                  minHeight:"4px",
-                  position:"relative",
-                }}/>
-                <div style={{fontSize:"0.65rem",color:C.onSurfaceVariant,fontWeight:isCurrentMonth?"700":"400"}}>{m.label}</div>
+                <div style={{width:"100%",display:"flex",gap:"2px",alignItems:"flex-end",height:"140px"}}>
+                  {(view==="revenue"||view==="combined")&&(
+                    <div style={{flex:1,height:`${revH}px`,minHeight:m.total>0?4:0,background:isCur?C.primary:C.secondary,borderRadius:"3px 3px 0 0",transition:"height 0.3s"}}/>
+                  )}
+                  {(view==="costs"||view==="combined")&&(
+                    <div style={{flex:1,height:`${costH}px`,minHeight:m.costs>0?4:0,background:"#ffc107",borderRadius:"3px 3px 0 0",transition:"height 0.3s"}}/>
+                  )}
+                </div>
+                <div style={{fontSize:"0.62rem",color:isCur?C.primary:C.onSurfaceVariant,fontWeight:isCur?"700":"400"}}>{m.month}</div>
               </div>
             );
           })}
         </div>
+        {view==="combined"&&(
+          <div style={{display:"flex",gap:"16px",marginTop:"8px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:"6px",fontSize:"0.75rem"}}><div style={{width:"12px",height:"12px",borderRadius:"2px",background:C.secondary}}/> Revenue</div>
+            <div style={{display:"flex",alignItems:"center",gap:"6px",fontSize:"0.75rem"}}><div style={{width:"12px",height:"12px",borderRadius:"2px",background:"#ffc107"}}/> Costs</div>
+          </div>
+        )}
       </div>
 
-      {/* Booking breakdown table */}
-      <div className="card" style={{padding:"32px"}}>
-        <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem",marginBottom:"16px"}}>All confirmed bookings</h3>
-        {recentBookings.length === 0 ? (
-          <p style={{color:C.onSurfaceVariant,fontSize:"0.88rem"}}>No confirmed bookings yet.</p>
-        ) : (
-          <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:"0.83rem"}}>
-              <thead>
-                <tr style={{borderBottom:`2px solid ${C.surfaceContainerHigh}`}}>
-                  {["Guest","Check-in","Check-out","Nights","Amount","Channel"].map(h => (
-                    <th key={h} style={{padding:"8px 12px",textAlign:"left",fontWeight:"700",color:C.onSurfaceVariant,fontSize:"0.72rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {recentBookings.map((r,i) => (
-                  <tr key={r.id} style={{borderBottom:`1px solid ${C.surfaceContainerLow}`,background:i%2===0?"white":C.surfaceContainerLow}}>
-                    <td style={{padding:"10px 12px",fontWeight:"600"}}>{r.name}</td>
-                    <td style={{padding:"10px 12px",color:C.onSurfaceVariant}}>{formatDate(r.check_in)}</td>
-                    <td style={{padding:"10px 12px",color:C.onSurfaceVariant}}>{formatDate(r.check_out)}</td>
-                    <td style={{padding:"10px 12px"}}>{r.nights}</td>
-                    <td style={{padding:"10px 12px",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",color:"#1a6a1a"}}>£{r.total}</td>
-                    <td style={{padding:"10px 12px"}}>
-                      <span style={{background:r.season==="peak"?"#ffdad5":r.season==="mid"?"#c8dfc8":"#e8e0d0",
-                        color:r.season==="peak"?C.primary:r.season==="mid"?"#2a5a2a":"#5a4a30",
-                        padding:"2px 8px",borderRadius:"999px",fontSize:"0.7rem",fontWeight:"700",textTransform:"capitalize"}}>
-                        Direct · {r.season||"—"}
-                      </span>
-                    </td>
-                  </tr>
+      {/* Monthly breakdown table */}
+      <div className="card" style={{padding:"24px",marginBottom:"20px"}}>
+        <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem",marginBottom:"16px"}}>Monthly breakdown — {year}</h3>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:"0.83rem"}}>
+            <thead>
+              <tr style={{borderBottom:`2px solid ${C.surfaceContainerHigh}`}}>
+                {["Month","TCF","Airbnb","Total revenue","Costs","Net","Pay Elina"].map(h=>(
+                  <th key={h} style={{textAlign:"left",padding:"8px 10px",fontSize:"0.7rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em"}}>{h}</th>
                 ))}
-              </tbody>
-              <tfoot>
-                <tr style={{borderTop:`2px solid ${C.surfaceContainerHigh}`,background:C.surfaceContainerLow}}>
-                  <td colSpan="4" style={{padding:"10px 12px",fontWeight:"700",color:C.onSurfaceVariant}}>Total ({recentBookings.length} bookings)</td>
-                  <td style={{padding:"10px 12px",fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"800",color:"#1a6a1a",fontSize:"1rem"}}>
-                    £{recentBookings.reduce((s,r)=>s+(Number(r.total)||0),0).toLocaleString()}
-                  </td>
-                  <td/>
-                </tr>
-              </tfoot>
-            </table>
+              </tr>
+            </thead>
+            <tbody>
+              {months.map((m,i)=>{
+                const toE = Math.max(0, MONTHLY_RENT - m.total);
+                const isCur = i===now.getMonth()&&year===now.getFullYear();
+                return (
+                  <tr key={i} style={{borderBottom:`1px solid ${C.surfaceContainerLow}`,background:isCur?`${C.primaryFixed}40`:"transparent"}}>
+                    <td style={{padding:"8px 10px",fontWeight:isCur?"700":"400"}}>{m.month}{isCur?" ←":""}</td>
+                    <td style={{padding:"8px 10px"}}>£{m.tcf.toFixed(0)}</td>
+                    <td style={{padding:"8px 10px",color:"#155724"}}>£{m.airbnb.toFixed(0)}</td>
+                    <td style={{padding:"8px 10px",fontWeight:"700",color:C.secondary}}>£{m.total.toFixed(0)}</td>
+                    <td style={{padding:"8px 10px",color:"#856404"}}>£{m.costs.toFixed(0)}</td>
+                    <td style={{padding:"8px 10px",fontWeight:"700",color:m.net>=0?"#155724":C.error}}>£{m.net.toFixed(0)}</td>
+                    <td style={{padding:"8px 10px",fontWeight:"700",color:toE===0?"#155724":C.error}}>{toE===0?"✓ covered":"£"+toE.toFixed(0)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr style={{borderTop:`2px solid ${C.surfaceContainerHigh}`,background:C.surfaceContainerLow}}>
+                <td style={{padding:"8px 10px",fontWeight:"700"}}>Total {year}</td>
+                <td style={{padding:"8px 10px",fontWeight:"700"}}>£{months.reduce((s,m)=>s+m.tcf,0).toFixed(0)}</td>
+                <td style={{padding:"8px 10px",fontWeight:"700",color:"#155724"}}>£{months.reduce((s,m)=>s+m.airbnb,0).toFixed(0)}</td>
+                <td style={{padding:"8px 10px",fontWeight:"800",color:C.secondary}}>£{yearRev.toFixed(0)}</td>
+                <td style={{padding:"8px 10px",fontWeight:"700",color:"#856404"}}>£{yearCosts.toFixed(0)}</td>
+                <td style={{padding:"8px 10px",fontWeight:"800",color:yearNet>=0?"#155724":C.error}}>£{yearNet.toFixed(0)}</td>
+                <td/>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      {/* Costs manager */}
+      <div className="card" style={{padding:"24px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px"}}>
+          <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem"}}>Costs</h3>
+          <button onClick={()=>setShowAddCost(s=>!s)} className="btn-ghost" style={{fontSize:"0.85rem",display:"flex",alignItems:"center",gap:"6px"}}>
+            <Icon name="add" size={16}/>Add cost
+          </button>
+        </div>
+        {showAddCost&&(
+          <div style={{background:C.surfaceContainerLow,borderRadius:"10px",padding:"16px",marginBottom:"16px",display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"10px"}}>
+            <div>
+              <label style={{display:"block",fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,marginBottom:"4px",textTransform:"uppercase",letterSpacing:"0.06em"}}>Date</label>
+              <input type="date" value={newCost.date} onChange={e=>setNewCost(c=>({...c,date:e.target.value}))} className="input-field"/>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,marginBottom:"4px",textTransform:"uppercase",letterSpacing:"0.06em"}}>Type</label>
+              <select value={newCost.type} onChange={e=>setNewCost(c=>({...c,type:e.target.value}))} className="input-field">
+                <option value="cleaning">Cleaning</option>
+                <option value="general">General</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="supplies">Supplies</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,marginBottom:"4px",textTransform:"uppercase",letterSpacing:"0.06em"}}>Description</label>
+              <input placeholder="e.g. Islington Cleaning Services" value={newCost.description} onChange={e=>setNewCost(c=>({...c,description:e.target.value}))} className="input-field"/>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,marginBottom:"4px",textTransform:"uppercase",letterSpacing:"0.06em"}}>Amount (£)</label>
+              <input type="number" placeholder="0.00" value={newCost.amount} onChange={e=>setNewCost(c=>({...c,amount:e.target.value}))} className="input-field"/>
+            </div>
+            <div style={{display:"flex",alignItems:"flex-end"}}>
+              <button onClick={addCost} className="btn-primary" style={{width:"100%",padding:"9px",fontSize:"0.85rem"}}>Add</button>
+            </div>
+          </div>
+        )}
+        {(!costs||costs.length===0)
+          ?<p style={{color:C.onSurfaceVariant,fontSize:"0.88rem"}}>No costs recorded yet.</p>
+          :(
+          <div style={{display:"flex",flexDirection:"column",gap:"4px"}}>
+            {[...(costs||[])].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(c=>(
+              <div key={c.id} style={{display:"flex",alignItems:"center",gap:"12px",padding:"8px 10px",borderRadius:"8px",background:C.surfaceContainerLow}}>
+                <span style={{fontSize:"0.75rem",color:C.onSurfaceVariant,minWidth:"80px"}}>{formatDate(c.date)}</span>
+                <span style={{fontSize:"0.72rem",padding:"2px 8px",borderRadius:"999px",background:"#fff3cd",color:"#856404",fontWeight:"700",textTransform:"capitalize"}}>{c.type}</span>
+                <span style={{flex:1,fontSize:"0.85rem"}}>{c.description}</span>
+                <span style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",color:"#856404"}}>£{Number(c.amount).toFixed(2)}</span>
+                <button onClick={()=>removeCost(c.id)} style={{background:"none",border:"none",color:C.error,cursor:"pointer",padding:"2px 6px",fontSize:"0.8rem"}}>✕</button>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -1989,115 +2122,9 @@ function AdminRevenue({ requests }) {
 }
 
 
-// ─── ADMIN: TEXT BLOCKS ───────────────────────────────────────────────────────
-
-function AdminTextBlocks({ textBlocks, setTextBlocks, flashSave }) {
-  const [edit, setEdit] = useState(textBlocks && textBlocks.length > 0 ? JSON.parse(JSON.stringify(textBlocks)) : [{title:"",content:""},{title:"",content:""},{title:"",content:""},{title:"",content:""},{title:"",content:""}]);
-
-  useEffect(() => {
-    if (textBlocks && textBlocks.length > 0) setEdit(JSON.parse(JSON.stringify(textBlocks)));
-  }, [textBlocks]);
-
-  async function save() {
-    setTextBlocks(edit);
-    await sb.setSetting("text_blocks", edit);
-    flashSave("Text blocks saved ✓");
-  }
-
-  function update(i, field, value) {
-    setEdit(prev => prev.map((b,idx) => idx===i ? {...b,[field]:value} : b));
-  }
-
-  function addBlock() {
-    setEdit(prev => [...prev, {title:"",content:""}]);
-  }
-
-  function removeBlock(i) {
-    setEdit(prev => prev.filter((_,idx) => idx!==i));
-  }
-
-  return (
-    <div className="slide-in">
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px",flexWrap:"wrap",gap:"12px"}}>
-        <div>
-          <h2 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1.3rem"}}>Text Blocks</h2>
-          <p style={{fontSize:"0.85rem",color:C.onSurfaceVariant,marginTop:"4px"}}>These appear at the bottom of the "About the Flat" page — perfect for house manual content.</p>
-        </div>
-        <div style={{display:"flex",gap:"8px"}}>
-          <button onClick={addBlock} className="btn-ghost" style={{display:"flex",alignItems:"center",gap:"6px",fontSize:"0.85rem"}}>
-            <Icon name="add" size={16}/>Add block
-          </button>
-          <button onClick={save} className="btn-primary" style={{padding:"8px 20px",fontSize:"0.85rem"}}>Save</button>
-        </div>
-      </div>
-
-      <div style={{display:"grid",gap:"16px",marginTop:"16px"}}>
-        {edit.map((block,i) => (
-          <div key={i} className="card" style={{padding:"24px",borderLeft:`4px solid ${C.secondary}`}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
-              <span style={{fontSize:"0.78rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em"}}>Block {i+1}</span>
-              <button onClick={()=>removeBlock(i)} style={{background:"none",border:`1px solid ${C.error}`,color:C.error,borderRadius:"6px",padding:"4px 10px",fontSize:"0.78rem",cursor:"pointer",fontWeight:"600"}}>Remove</button>
-            </div>
-            <div style={{display:"grid",gap:"10px"}}>
-              <div>
-                <label style={{display:"block",fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"5px"}}>Title (optional)</label>
-                <input value={block.title||""} onChange={e=>update(i,"title",e.target.value)}
-                  placeholder="e.g. Heating & hot water" className="input-field"/>
-              </div>
-              <div>
-                <label style={{display:"block",fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"5px"}}>Content</label>
-                <textarea value={block.content||""} onChange={e=>update(i,"content",e.target.value)}
-                  placeholder="Add your house manual content here..." className="input-field" style={{height:"100px",resize:"vertical",marginBottom:"10px"}}/>
-                <label style={{display:"block",fontSize:"0.72rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"5px"}}>
-                  Photo (optional)
-                </label>
-                <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
-                  {block.image&&<img src={block.image} alt="preview" style={{width:"56px",height:"56px",objectFit:"cover",borderRadius:"6px",flexShrink:0}}/>}
-                  <div style={{flex:1}}>
-                    <input type="file" accept="image/*" onChange={e=>{
-                      const file=e.target.files[0]; if(!file) return;
-                      const reader=new FileReader();
-                      reader.onload=ev=>{
-                        const img=new Image();
-                        img.onload=()=>{
-                          const canvas=document.createElement("canvas");
-                          let w=img.width,h=img.height;
-                          if(w>1200){h=Math.round(h*1200/w);w=1200;}
-                          canvas.width=w;canvas.height=h;
-                          canvas.getContext("2d").drawImage(img,0,0,w,h);
-                          update(i,"image",canvas.toDataURL("image/jpeg",0.75));
-                        };
-                        img.src=ev.target.result;
-                      };
-                      reader.readAsDataURL(file);
-                    }} style={{fontSize:"0.82rem",width:"100%"}}/>
-                    {block.image&&<button onClick={()=>update(i,"image","")} style={{background:"none",border:"none",color:C.error,fontSize:"0.75rem",cursor:"pointer",marginTop:"3px",padding:0}}>Remove photo</button>}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {edit.length === 0 && (
-        <div className="card" style={{padding:"48px",textAlign:"center",color:C.onSurfaceVariant}}>
-          <Icon name="text_fields" size={40} style={{color:C.outlineVariant,marginBottom:"12px"}}/>
-          <p style={{marginBottom:"16px"}}>No text blocks yet. Add your first one!</p>
-          <button onClick={addBlock} className="btn-primary" style={{padding:"10px 24px"}}>Add a block</button>
-        </div>
-      )}
-
-      <div style={{marginTop:"20px",display:"flex",justifyContent:"flex-end"}}>
-        <button onClick={save} className="btn-primary" style={{padding:"10px 28px"}}>Save text blocks</button>
-      </div>
-    </div>
-  );
-}
-
 // ─── ADMIN: ICAL SYNC ─────────────────────────────────────────────────────────
 
-function AdminIcalSync({ blockedDates, setBlockedDates, flashSave }) {
+function AdminIcalSync({ blockedDates, setBlockedDates, airbnbDates, setAirbnbDates, airbnbBookings, setAirbnbBookings, flashSave }) {
   const [icalUrl, setIcalUrl] = useState("");
   const [savedUrl, setSavedUrl] = useState("");
   const [syncing, setSyncing] = useState(false);
@@ -2126,51 +2153,74 @@ function AdminIcalSync({ blockedDates, setBlockedDates, flashSave }) {
     if (!savedUrl) return;
     setSyncing(true);
     try {
-      // Fetch via a CORS proxy since iCal files don't allow direct browser fetch
       const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(savedUrl)}`;
       const res = await fetch(proxyUrl);
       const text = await res.text();
 
-      // Parse iCal DTSTART/DTEND to extract booked date ranges
+      // Parse iCal events
       const events = [];
       const lines = text.split(/\r?\n/);
-      let inEvent = false, dtstart = null, dtend = null;
+      let inEvent = false, dtstart = null, dtend = null, summary = "";
 
       for (const line of lines) {
-        if (line === "BEGIN:VEVENT") { inEvent = true; dtstart = null; dtend = null; }
+        if (line === "BEGIN:VEVENT") { inEvent = true; dtstart = null; dtend = null; summary = ""; }
         if (line === "END:VEVENT" && inEvent) {
-          if (dtstart && dtend) events.push({ start: dtstart, end: dtend });
+          if (dtstart && dtend) events.push({ start: dtstart, end: dtend, summary });
           inEvent = false;
         }
         if (inEvent) {
           const startMatch = line.match(/^DTSTART[^:]*:(\d{8})/);
           const endMatch = line.match(/^DTEND[^:]*:(\d{8})/);
+          const summaryMatch = line.match(/^SUMMARY:(.*)/);
           if (startMatch) dtstart = startMatch[1];
           if (endMatch) dtend = endMatch[1];
+          if (summaryMatch) summary = summaryMatch[1].trim();
         }
       }
 
-      // Convert YYYYMMDD to ISO dates and build range
       function parseIcalDate(s) {
         return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
       }
 
-      const newBlocked = new Set(blockedDates);
-      let count = 0;
+      // Build airbnb bookings list - preserve existing revenue entries
+      const existingAirbnb = airbnbBookings || [];
+      const newAirbnbBookings = events
+        .filter(ev => !summary.includes("Not available") && !summary.includes("Airbnb (Not available)"))
+        .map(ev => {
+          const checkIn = parseIcalDate(ev.start);
+          const checkOut = parseIcalDate(ev.end);
+          // Preserve existing revenue if same dates
+          const existing = existingAirbnb.find(b => b.checkIn === checkIn && b.checkOut === checkOut);
+          return {
+            id: `airbnb-${ev.start}-${ev.end}`,
+            checkIn, checkOut,
+            summary: ev.summary || "Airbnb booking",
+            revenue: existing?.revenue || "",
+            nights: Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000),
+          };
+        });
+
+      // Block dates from checkin to day BEFORE checkout (Airbnb style)
+      const newBlocked = new Set(blockedDates.filter(d => !airbnbDates.includes(d)));
+      const newAirbnbDates = [];
       for (const ev of events) {
-        const range = dateRange(parseIcalDate(ev.start), parseIcalDate(ev.end));
-        range.forEach(d => { if (!newBlocked.has(d)) { newBlocked.add(d); count++; } });
+        const range = dateRange(parseIcalDate(ev.start), parseIcalDate(ev.end), false);
+        range.forEach(d => { newBlocked.add(d); newAirbnbDates.push(d); });
       }
 
-      const next = [...newBlocked];
-      setBlockedDates(next);
-      await sb.setSetting("blocked_dates", next);
+      setBlockedDates([...newBlocked]);
+      setAirbnbDates(newAirbnbDates);
+      setAirbnbBookings(newAirbnbBookings);
+      await sb.setSetting("blocked_dates", [...newBlocked]);
+      await sb.setSetting("airbnb_dates", newAirbnbDates);
+      await sb.setSetting("airbnb_bookings", newAirbnbBookings);
       const now = new Date().toISOString();
       await sb.setSetting("ical_last_sync", now);
       setLastSync(now);
-      setSyncedCount(count);
-      flashSave(`Synced! ${count} new dates blocked ✓`);
+      setSyncedCount(newAirbnbDates.length);
+      flashSave(`Synced! ${newAirbnbBookings.length} Airbnb bookings imported ✓`);
     } catch(e) {
+      console.error(e);
       alert("Sync failed. Check the iCal URL and try again.");
     }
     setSyncing(false);
@@ -2219,9 +2269,36 @@ function AdminIcalSync({ blockedDates, setBlockedDates, flashSave }) {
           </button>
         </div>
         <div style={{background:C.surfaceContainerLow,borderRadius:"8px",padding:"14px 16px",fontSize:"0.82rem",color:C.onSurfaceVariant}}>
-          <strong>Note:</strong> Syncing imports Airbnb bookings and blocks those dates here. Run this manually whenever you get a new Airbnb booking, or once a day to stay current.
+          <strong>Note:</strong> Syncing imports Airbnb bookings and blocks those dates here. Airbnb dates show in green on the calendar.
         </div>
       </div>
+
+      {/* Airbnb bookings with revenue */}
+      {airbnbBookings&&airbnbBookings.length>0&&(
+        <div className="card" style={{padding:"24px",marginTop:"20px"}}>
+          <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem",marginBottom:"16px"}}>Airbnb Bookings — Revenue</h3>
+          <p style={{fontSize:"0.82rem",color:C.onSurfaceVariant,marginBottom:"16px"}}>Enter the net payout you received from Airbnb for each booking (after their fees).</p>
+          {airbnbBookings.map((b,i)=>(
+            <div key={b.id} style={{display:"flex",alignItems:"center",gap:"12px",padding:"10px 0",borderBottom:`1px solid ${C.surfaceContainerLow}`,flexWrap:"wrap"}}>
+              <div style={{flex:1,minWidth:"200px"}}>
+                <div style={{fontWeight:"600",fontSize:"0.88rem"}}>{b.summary||"Airbnb booking"}</div>
+                <div style={{fontSize:"0.78rem",color:C.onSurfaceVariant}}>{formatDate(b.checkIn)} → {formatDate(b.checkOut)} · {b.nights} nights</div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+                <span style={{fontSize:"0.82rem",color:C.onSurfaceVariant,fontWeight:"600"}}>£</span>
+                <input type="number" placeholder="Net payout" value={b.revenue||""}
+                  onChange={async e=>{
+                    const updated=airbnbBookings.map((bk,idx)=>idx===i?{...bk,revenue:e.target.value}:bk);
+                    setAirbnbBookings(updated);
+                    await sb.setSetting("airbnb_bookings",updated);
+                  }}
+                  style={{width:"100px",padding:"6px 10px",border:`1px solid ${C.outlineVariant}`,borderRadius:"6px",fontSize:"0.88rem",fontWeight:"700"}}/>
+              </div>
+              <span style={{fontSize:"0.72rem",padding:"2px 8px",borderRadius:"999px",background:"#d4edda",color:"#155724",fontWeight:"700"}}>Airbnb</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -2265,17 +2342,19 @@ function AdminView({ blockedDates, setBlockedDates, ownerDates, setOwnerDates, p
           </div>
         </header>
 
-        {tab==="calendar"&&<AdminCalendar blockedDates={blockedDates} setBlockedDates={setBlockedDates} ownerDates={ownerDates} setOwnerDates={setOwnerDates} requests={requests} flashSave={flashSave}/>}
+        {tab==="calendar"&&<AdminCalendar blockedDates={blockedDates} setBlockedDates={setBlockedDates} ownerDates={ownerDates} setOwnerDates={setOwnerDates} airbnbDates={airbnbDates} requests={requests} flashSave={flashSave}/>}
         {tab==="requests"&&<AdminRequests requests={requests} setRequests={setRequests} blockedDates={blockedDates} setBlockedDates={setBlockedDates} flashSave={flashSave}/>}
         {tab==="photos"&&<AdminPhotos photos={photos} setPhotos={setPhotos} flashSave={flashSave}/>}
         {tab==="tips"&&<AdminAngelEdit tips={tips} setTips={setTips} flashSave={flashSave}/>}
         {tab==="revenue"&&<AdminRevenue requests={requests}/>}
         {tab==="pricing"&&<AdminPricing pricing={pricing} setPricing={setPricing} showPricing={showPricing} setShowPricing={setShowPricing} flashSave={flashSave}/>}
-        {tab==="ical"&&<AdminIcalSync blockedDates={blockedDates} setBlockedDates={setBlockedDates} flashSave={flashSave}/>}
-        {tab==="analytics"&&<AdminAnalytics requests={requests}/>}
-        {tab==="revenue"&&<AdminAnalytics requests={requests}/>}
+        {tab==="ical"&&<AdminIcalSync blockedDates={blockedDates} setBlockedDates={setBlockedDates} airbnbDates={airbnbDates} setAirbnbDates={setAirbnbDates} airbnbBookings={airbnbBookings} setAirbnbBookings={setAirbnbBookings} flashSave={flashSave}/>}
+        {tab==="analytics"&&<AdminAnalytics requests={requests} airbnbBookings={airbnbBookings} costs={costs} setCosts={setCosts} flashSave={flashSave}/>}
+        {tab==="revenue"&&<AdminAnalytics requests={requests} airbnbBookings={airbnbBookings} costs={costs} setCosts={setCosts} flashSave={flashSave}/>}
         {tab==="textblocks"&&<AdminTextBlocks textBlocks={textBlocks} setTextBlocks={setTextBlocks} flashSave={flashSave}/>}
+        {tab==="guestbook"&&<AdminGuestbook entries={guestbookEntries} setEntries={setGuestbookEntries} flashSave={flashSave}/>}
         {tab==="textblocks"&&<AdminTextBlocks textBlocks={textBlocks} setTextBlocks={setTextBlocks} flashSave={flashSave}/>}
+        {tab==="guestbook"&&<AdminGuestbook entries={guestbookEntries} setEntries={setGuestbookEntries} flashSave={flashSave}/>}
         {tab==="settings"&&<AdminSettings info={info} setInfo={setInfo} flashSave={flashSave}/>}
       </main>
     </div>
@@ -2323,6 +2402,10 @@ export default function App() {
 
   const [blockedDates,setBlockedDates]=useState([]);
   const [ownerDates,setOwnerDates]=useState([]);
+  const [airbnbDates,setAirbnbDates]=useState([]);
+  const [airbnbBookings,setAirbnbBookings]=useState([]);
+  const [costs,setCosts]=useState([]);
+  const [guestbookEntries,setGuestbookEntries]=useState([]);
   const [pricing,setPricing]=useState(DEFAULT_PRICING);
   const [info,setInfo]=useState(DEFAULT_INFO);
   const [showPricing,setShowPricing]=useState(true);
@@ -2334,9 +2417,10 @@ export default function App() {
   useEffect(()=>{
     async function load(){
       try{
-        const [b,od,p,i,sp,ph,t,tb]=await Promise.all([
+        const [b,od,p,i,sp,ph,t,tb,abd,abb,co,gb]=await Promise.all([
           sb.getSetting("blocked_dates"),sb.getSetting("owner_dates"),sb.getSetting("pricing"),sb.getSetting("info"),
           sb.getSetting("show_pricing"),sb.getSetting("photos"),sb.getSetting("tips"),sb.getSetting("text_blocks"),
+          sb.getSetting("airbnb_dates"),sb.getSetting("airbnb_bookings"),sb.getSetting("costs"),sb.getSetting("guestbook"),
         ]);
         if(b) setBlockedDates(b);
         if(od) setOwnerDates(od);
@@ -2346,6 +2430,10 @@ export default function App() {
         if(ph) setPhotos(ph);
         if(t) setTips(t);
         if(tb) setTextBlocks(tb);
+        if(abd) setAirbnbDates(abd);
+        if(abb) setAirbnbBookings(abb);
+        if(co) setCosts(co);
+        if(gb) setGuestbookEntries(gb);
         // Requests loaded separately when admin logs in
       }catch(e){
         console.error("Load error:", e);
@@ -2392,10 +2480,11 @@ export default function App() {
           <GuestNav activeTab={guestTab} setTab={setGuestTab} showPricing={showPricing}/>
           <CookieBanner/>
           {guestTab==="home"&&<GuestHome info={info} photos={photos} setTab={setGuestTab} tips={tips}/>}
-          {guestTab==="availability"&&<GuestAvailability blockedDates={blockedDates} ownerDates={ownerDates} setTab={setGuestTab}/>}
+          {guestTab==="availability"&&<GuestAvailability blockedDates={blockedDates} ownerDates={ownerDates} airbnbDates={airbnbDates} setTab={setGuestTab}/>}
           {guestTab==="pricing"&&showPricing&&<GuestPricing pricing={pricing}/>}
           {guestTab==="about"&&<GuestAbout info={info} textBlocks={textBlocks}/>}
           {guestTab==="privacy"&&<GuestPrivacy info={info}/>}
+          {guestTab==="guestbook"&&<GuestGuestbook entries={guestbookEntries}/>}
           {guestTab==="book"&&<GuestBook blockedDates={blockedDates} ownerDates={ownerDates} pricing={pricing} onSubmitRequest={addRequest}/>}
           <GuestFooter info={info} setTab={setGuestTab}/>
         </div>
