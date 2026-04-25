@@ -262,7 +262,9 @@ function Calendar({ blockedDates, ownerDates=[], airbnbDates=[], onSelectRange, 
   }
 
   function handleClick(iso){
-    if(readOnly||blockedSet.has(iso)||ownerSet.has(iso)||airbnbSet.has(iso)) return;
+    if(readOnly&&(blockedSet.has(iso)||ownerSet.has(iso)||airbnbSet.has(iso))) return;
+    if(!readOnly&&airbnbSet.has(iso)) return; // airbnb dates not manually editable
+    if(blockedSet.has(iso)&&readOnly) return;
     if(new Date(iso)<new Date(today.toISOString().slice(0,10))) return;
     onSelectRange(iso);
   }
