@@ -262,10 +262,11 @@ function Calendar({ blockedDates, ownerDates=[], airbnbDates=[], onSelectRange, 
   }
 
   function handleClick(iso){
+    // In read-only (guest): block clicking on unavailable dates
     if(readOnly&&(blockedSet.has(iso)||ownerSet.has(iso)||airbnbSet.has(iso))) return;
-    if(!readOnly&&airbnbSet.has(iso)) return; // airbnb dates not manually editable
-    if(blockedSet.has(iso)&&readOnly) return;
-    if(new Date(iso)<new Date(today.toISOString().slice(0,10))) return;
+    // In admin: only block airbnb dates (managed via sync) and past dates
+    if(!readOnly&&airbnbSet.has(iso)) return;
+    if(readOnly&&new Date(iso)<new Date(today.toISOString().slice(0,10))) return;
     onSelectRange(iso);
   }
 
@@ -801,10 +802,10 @@ function GuestBook({ blockedDates, ownerDates, airbnbDates, pricing, onSubmitReq
     if(!selStart||(selStart&&selEnd)){setSelStart(iso);setSelEnd(null);}
     else{
       if(iso<selStart){setSelStart(iso);setSelEnd(null);}
-      else if(iso===selStart) setSelStart(null);
+      else if(iso===selStart){setSelEnd(iso);} // single date: start=end
       else{
         const range=dateRange(selStart,iso);
-        if(range.some(d=>new Set(blockedDates).has(d))){setError("Selection includes unavailable dates.");return;}
+        // Only block mixed selections in guest/readOnly mode
         setSelEnd(iso);setError("");
       }
     }
@@ -1326,15 +1327,17 @@ function AdminCalendar({ blockedDates, setBlockedDates, ownerDates, setOwnerDate
   async function persist(next){ await sb.setSetting("blocked_dates",next); }
 
   async function blockDates(){
-    if(!selStart||!selEnd) return;
-    const next=[...new Set([...blockedDates,...dateRange(selStart,selEnd)])];
+    if(!selStart) return;
+    const end=selEnd||selStart; // support single date
+    const next=[...new Set([...blockedDates,...dateRange(selStart,end)])];
     setBlockedDates(next); await persist(next);
     setSelStart(null);setSelEnd(null);setNote("");
     flashSave("Dates blocked ✓");
   }
   async function unblockDates(){
-    if(!selStart||!selEnd) return;
-    const range=new Set(dateRange(selStart,selEnd));
+    if(!selStart) return;
+    const end=selEnd||selStart; // support single date
+    const range=new Set(dateRange(selStart,end));
     const next=blockedDates.filter(d=>!range.has(d));
     const nextOwner=ownerDates.filter(d=>!range.has(d));
     const nextAirbnb=airbnbDates.filter(d=>!range.has(d));
@@ -1346,8 +1349,9 @@ function AdminCalendar({ blockedDates, setBlockedDates, ownerDates, setOwnerDate
   }
 
   async function blockOwner(){
-    if(!selStart||!selEnd) return;
-    const range=dateRange(selStart,selEnd);
+    if(!selStart) return;
+    const end=selEnd||selStart;
+    const range=dateRange(selStart,end);
     const next=[...new Set([...ownerDates,...range])];
     setOwnerDates(next); await sb.setSetting("owner_dates",next);
     setSelStart(null);setSelEnd(null);setNote("");
