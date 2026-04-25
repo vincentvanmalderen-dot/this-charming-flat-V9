@@ -1307,7 +1307,7 @@ function AdminSidebar({ activeTab, setTab, pendingCount, sidebarOpen, setSidebar
 
 // ─── ADMIN: CALENDAR TAB ──────────────────────────────────────────────────────
 
-function AdminCalendar({ blockedDates, setBlockedDates, ownerDates, setOwnerDates, airbnbDates, requests, flashSave }) {
+function AdminCalendar({ blockedDates, setBlockedDates, ownerDates, setOwnerDates, airbnbDates, setAirbnbDates, requests, flashSave }) {
   const [selStart,setSelStart]=useState(null);
   const [selEnd,setSelEnd]=useState(null);
   const [note,setNote]=useState("");
@@ -1335,8 +1335,10 @@ function AdminCalendar({ blockedDates, setBlockedDates, ownerDates, setOwnerDate
     const range=new Set(dateRange(selStart,selEnd));
     const next=blockedDates.filter(d=>!range.has(d));
     const nextOwner=ownerDates.filter(d=>!range.has(d));
+    const nextAirbnb=airbnbDates.filter(d=>!range.has(d));
     setBlockedDates(next); await persist(next);
     setOwnerDates(nextOwner); await sb.setSetting("owner_dates",nextOwner);
+    setAirbnbDates(nextAirbnb); await sb.setSetting("airbnb_dates",nextAirbnb);
     setSelStart(null);setSelEnd(null);
     flashSave("Dates unblocked ✓");
   }
@@ -2447,7 +2449,7 @@ function AdminView({ blockedDates, setBlockedDates, ownerDates, setOwnerDates, p
           </div>
         </header>
 
-        {tab==="calendar"&&<AdminCalendar blockedDates={blockedDates} setBlockedDates={setBlockedDates} ownerDates={ownerDates} setOwnerDates={setOwnerDates} airbnbDates={airbnbDates} requests={requests} flashSave={flashSave}/>}
+        {tab==="calendar"&&<AdminCalendar blockedDates={blockedDates} setBlockedDates={setBlockedDates} ownerDates={ownerDates} setOwnerDates={setOwnerDates} airbnbDates={airbnbDates} setAirbnbDates={setAirbnbDates} requests={requests} flashSave={flashSave}/>}
         {tab==="requests"&&<AdminRequests requests={requests} setRequests={setRequests} blockedDates={blockedDates} setBlockedDates={setBlockedDates} flashSave={flashSave}/>}
         {tab==="photos"&&<AdminPhotos photos={photos} setPhotos={setPhotos} flashSave={flashSave}/>}
         {tab==="tips"&&<AdminAngelEdit tips={tips} setTips={setTips} flashSave={flashSave}/>}
@@ -2588,7 +2590,7 @@ export default function App() {
           {guestTab==="about"&&<GuestAbout info={info} textBlocks={textBlocks}/>}
           {guestTab==="privacy"&&<GuestPrivacy info={info}/>}
           {guestTab==="guestbook"&&<GuestGuestbook entries={guestbookEntries}/>}
-          {guestTab==="book"&&<GuestBook blockedDates={blockedDates} ownerDates={ownerDates} pricing={pricing} onSubmitRequest={addRequest}/>}
+          {guestTab==="book"&&<GuestBook blockedDates={blockedDates} ownerDates={ownerDates} airbnbDates={airbnbDates} pricing={pricing} onSubmitRequest={addRequest}/>}
           <GuestFooter info={info} setTab={setGuestTab}/>
         </div>
       )}
