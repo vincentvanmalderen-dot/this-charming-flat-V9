@@ -262,11 +262,13 @@ function Calendar({ blockedDates, ownerDates=[], airbnbDates=[], onSelectRange, 
   }
 
   function handleClick(iso){
-    // In read-only (guest): block clicking on unavailable dates
-    if(readOnly&&(blockedSet.has(iso)||ownerSet.has(iso)||airbnbSet.has(iso))) return;
-    // In admin: only block airbnb dates (managed via sync) and past dates
-    if(!readOnly&&airbnbSet.has(iso)) return;
-    if(readOnly&&new Date(iso)<new Date(today.toISOString().slice(0,10))) return;
+    const isPast = new Date(iso)<new Date(today.toISOString().slice(0,10));
+    const isAirbnb = airbnbSet.has(iso);
+    const isUnavailable = blockedSet.has(iso)||ownerSet.has(iso)||isAirbnb;
+    // Guest view: can't click unavailable or past dates
+    if(readOnly && (isUnavailable || isPast)) return;
+    // Admin view: can't click airbnb dates or past dates
+    if(!readOnly && (isAirbnb || isPast)) return;
     onSelectRange(iso);
   }
 
@@ -312,7 +314,7 @@ function Calendar({ blockedDates, ownerDates=[], airbnbDates=[], onSelectRange, 
               onMouseLeave={()=>!readOnly&&setHover(null)}
               style={{
                 textAlign:"center",padding:compact?"5px 2px":"7px 2px",borderRadius:"6px",
-                background:bg,color,cursor:(readOnly&&(state==="blocked"||state==="owner"||state==="airbnb"))||state==="past"||(state==="airbnb"&&!readOnly)?"default":"pointer",
+                background:bg,color,cursor:(state==="past"||(readOnly&&(state==="blocked"||state==="owner"||state==="airbnb"))||(!readOnly&&state==="airbnb"))?"default":"pointer",
                 fontSize:"0.82rem",fontWeight:fw,
                 border:state==="selected"?`2px solid ${C.primary}`:"2px solid transparent",
                 transition:"background 0.1s",position:"relative",
@@ -1381,7 +1383,7 @@ function AdminCalendar({ blockedDates, setBlockedDates, ownerDates, setOwnerDate
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"24px"}}>
             <h2 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1.3rem"}}>Manage Availability</h2>
             <div style={{display:"flex",gap:"8px"}}>
-              {selStart&&selEnd&&<>
+              {selStart&&<>
                 <button className="btn-ghost" onClick={unblockDates} style={{fontSize:"0.8rem",padding:"6px 14px"}}>Unblock</button>
                 <button className="btn-secondary" onClick={blockDates} style={{fontSize:"0.8rem",padding:"6px 14px"}}>Block dates</button>
                 <button onClick={blockOwner} style={{background:"#ffc107",color:"#333",border:"none",borderRadius:"6px",padding:"6px 14px",fontWeight:"700",fontSize:"0.8rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"4px"}}>
