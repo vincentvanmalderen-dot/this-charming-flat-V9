@@ -787,7 +787,7 @@ function GuestAbout({ info, textBlocks=[] }) {
 
 // ─── GUEST: BOOK ──────────────────────────────────────────────────────────────
 
-function GuestBook({ blockedDates, ownerDates, pricing, onSubmitRequest }) {
+function GuestBook({ blockedDates, ownerDates, airbnbDates, pricing, onSubmitRequest }) {
   const [selStart,setSelStart]=useState(null);
   const [selEnd,setSelEnd]=useState(null);
   const [form,setForm]=useState({name:"",email:"",phone:"",relationship:"",message:""});
