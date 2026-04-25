@@ -312,7 +312,7 @@ function Calendar({ blockedDates, ownerDates=[], airbnbDates=[], onSelectRange, 
               onMouseLeave={()=>!readOnly&&setHover(null)}
               style={{
                 textAlign:"center",padding:compact?"5px 2px":"7px 2px",borderRadius:"6px",
-                background:bg,color,cursor:readOnly||state==="blocked"||state==="past"?"default":"pointer",
+                background:bg,color,cursor:(readOnly&&(state==="blocked"||state==="owner"||state==="airbnb"))||state==="past"||(state==="airbnb"&&!readOnly)?"default":"pointer",
                 fontSize:"0.82rem",fontWeight:fw,
                 border:state==="selected"?`2px solid ${C.primary}`:"2px solid transparent",
                 transition:"background 0.1s",position:"relative",
