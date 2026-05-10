@@ -416,7 +416,8 @@ function GuestNav({ activeTab, setTab, showPricing }) {
     ...(showPricing?[{id:"pricing",label:"Pricing"}]:[]),
     {id:"about",label:"About the Flat"},
     {id:"guestbook",label:"Guestbook"},
-    {id:"book",label:"Book Now",cta:true},
+    {id:"book",label:"Book now (friends)",cta:true},
+    {id:"airbnb",label:"Book now (Airbnb)",cta:true,external:"https://www.airbnb.co.uk/h/thischarmingflat1"},
   ];
   const allTabs = [...tabs, {id:"privacy",label:"Privacy Policy",hidden:true}];
   return (
@@ -451,15 +452,21 @@ function GuestNav({ activeTab, setTab, showPricing }) {
             ))}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:"16px"}}>
-            <button className="btn-primary desktop-only" onClick={()=>setTab("book")} style={{padding:"10px 24px",fontSize:"0.85rem"}}>Book Now</button>
+            <button className="btn-primary desktop-only" onClick={()=>setTab("book")} style={{padding:"10px 24px",fontSize:"0.85rem"}}>Book (friends)</button>
+            <a href="https://www.airbnb.co.uk/h/thischarmingflat1" target="_blank" rel="noopener noreferrer" className="desktop-only" style={{padding:"10px 18px",fontSize:"0.85rem",background:"transparent",border:`1px solid ${C.primary}`,color:C.primary,borderRadius:"999px",fontWeight:"700",textDecoration:"none",whiteSpace:"nowrap"}}>Book (Airbnb)</a>
             <button className="mobile-menu-btn" onClick={()=>setMenuOpen(o=>!o)} aria-label="Menu">
               <Icon name={menuOpen?"close":"menu"} size={24}/>
             </button>
           </div>
         </div>
         <div className={`mobile-menu${menuOpen?" open":""}`}>
-          {tabs.map(t=>(
-            <span key={t.id} className={`mobile-nav-link${activeTab===t.id?" active":""}`} onClick={()=>{setTab(t.id);setMenuOpen(false);}}>{t.label}</span>
+          {tabs.filter(t=>!t.hidden).map(t=>(
+            t.external
+              ? <a key={t.id} href={t.external} target="_blank" rel="noopener noreferrer"
+                  className="mobile-nav-link" style={{textDecoration:"none",color:"inherit",display:"block"}}
+                  onClick={()=>setMenuOpen(false)}>{t.label}</a>
+              : <span key={t.id} className={`mobile-nav-link${activeTab===t.id?" active":""}`}
+                  onClick={()=>{setTab(t.id);setMenuOpen(false);}}>{t.label}</span>
           ))}
         </div>
       </nav>
@@ -671,7 +678,7 @@ function GuestPricing({ pricing }) {
                 ))}
               </div>
               <div style={{background:C.surfaceContainerLow,borderRadius:"8px",padding:"12px",fontSize:"0.75rem",color:C.onSurfaceVariant}}>
-                <span style={{fontWeight:"600"}}>Airbnb listed:</span> from £{s.airbnb[0]}/night
+                <span style={{fontWeight:"600"}}>Note:</span> Book directly for the best rate — no platform fees.
               </div>
             </div>
           </div>
@@ -1997,47 +2004,53 @@ function AdminAngelEdit({ tips, setTips, flashSave }) {
 
 // ─── ADMIN: ANALYTICS ────────────────────────────────────────────────────────
 
-const MONTHLY_RENT = 1652.99;
+// Fixed monthly costs
+const FIXED_RENT    = 1500.00;  // rent
+const FIXED_COUNCIL = 137.00;   // council tax
+const FIXED_INTERNET = 22.99;   // internet
+const FIXED_TOTAL   = FIXED_RENT + FIXED_COUNCIL + FIXED_INTERNET; // 1659.99
 
 function AdminAnalytics({ requests, airbnbBookings, costs, setCosts, flashSave }) {
   const [year, setYear] = useState(new Date().getFullYear());
-  const [view, setView] = useState("combined"); // revenue | costs | combined
+  const [view, setView] = useState("combined");
   const [showAddCost, setShowAddCost] = useState(false);
   const [newCost, setNewCost] = useState({ date: new Date().toISOString().slice(0,10), description: "", amount: "", type: "cleaning" });
 
   const confirmed = requests.filter(r => r.status === "confirmed" && r.total);
-  const airbnbRev = (airbnbBookings||[]).filter(b => b.revenue && Number(b.revenue) > 0);
 
-  // Get all revenue for a month (TCF + Airbnb)
   function getMonthRevenue(y, m) {
-    const tcf = confirmed.filter(r => { const d=new Date(r.check_in); return d.getFullYear()===y&&d.getMonth()===m; })
-      .reduce((s,r)=>s+Number(r.total),0);
-    const airbnb = airbnbRev.filter(b => { const d=new Date(b.checkIn); return d.getFullYear()===y&&d.getMonth()===m; })
-      .reduce((s,b)=>s+Number(b.revenue),0);
-    return { tcf, airbnb, total: tcf + airbnb };
+    const total = confirmed.filter(r => {
+      const d = new Date(r.check_in);
+      return d.getFullYear()===y && d.getMonth()===m;
+    }).reduce((s,r) => s + Number(r.total), 0);
+    return total;
   }
 
   function getMonthCosts(y, m) {
-    return (costs||[]).filter(c => { const d=new Date(c.date); return d.getFullYear()===y&&d.getMonth()===m; })
-      .reduce((s,c)=>s+Number(c.amount),0);
+    const variable = (costs||[]).filter(c => {
+      const d = new Date(c.date);
+      return d.getFullYear()===y && d.getMonth()===m;
+    }).reduce((s,c) => s + Number(c.amount), 0);
+    return { variable, fixed: FIXED_TOTAL, total: variable + FIXED_TOTAL };
   }
 
+  const now = new Date();
   const months = Array.from({length:12}, (_,i) => {
     const rev = getMonthRevenue(year, i);
-    const cost = getMonthCosts(year, i);
-    return { month: SHORT_MONTHS[i], ...rev, costs: cost, net: rev.total - cost };
+    const c = getMonthCosts(year, i);
+    return { month: SHORT_MONTHS[i], revenue: rev, varCosts: c.variable, fixedCosts: c.fixed, totalCosts: c.total, profit: rev - c.total };
   });
 
-  const yearRev = months.reduce((s,m)=>s+m.total,0);
-  const yearCosts = months.reduce((s,m)=>s+m.costs,0);
-  const yearNet = yearRev - yearCosts;
-  const maxBar = Math.max(...months.map(m=>Math.max(m.total,m.costs)),1);
+  const yearRev   = months.reduce((s,m) => s + m.revenue, 0);
+  const yearVar   = months.reduce((s,m) => s + m.varCosts, 0);
+  const yearFixed = FIXED_TOTAL * 12;
+  const yearProfit = yearRev - yearFixed - yearVar;
+  const maxBar = Math.max(...months.map(m => Math.max(m.revenue, m.totalCosts)), 1);
 
-  // Current month to Elina calculation
-  const now = new Date();
-  const curMonthRev = getMonthRevenue(now.getFullYear(), now.getMonth());
-  const toElina = Math.max(0, MONTHLY_RENT - curMonthRev.total);
-  const surplus = curMonthRev.total - MONTHLY_RENT;
+  const yearOptions = [...new Set([
+    ...confirmed.map(r => new Date(r.check_in).getFullYear()),
+    now.getFullYear()
+  ])].sort((a,b) => b-a);
 
   async function addCost() {
     if (!newCost.date || !newCost.amount || !newCost.description) return;
@@ -2056,19 +2069,13 @@ function AdminAnalytics({ requests, airbnbBookings, costs, setCosts, flashSave }
     flashSave("Cost removed ✓");
   }
 
-  const yearOptions = [...new Set([
-    ...confirmed.map(r => new Date(r.check_in).getFullYear()),
-    ...airbnbRev.map(b => new Date(b.checkIn).getFullYear()),
-    now.getFullYear()
-  ])].sort((a,b)=>b-a);
-
   return (
     <div className="slide-in">
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"24px",flexWrap:"wrap",gap:"12px"}}>
         <h2 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1.3rem"}}>Revenue & Costs</h2>
-        <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:"8px",flexWrap:"wrap",alignItems:"center"}}>
           {["revenue","costs","combined"].map(v=>(
-            <button key={v} onClick={()=>setView(v)} style={{padding:"6px 14px",borderRadius:"999px",border:"none",fontWeight:"600",fontSize:"0.78rem",cursor:"pointer",
+            <button key={v} onClick={()=>setView(v)} style={{padding:"6px 14px",borderRadius:"999px",fontWeight:"600",fontSize:"0.78rem",cursor:"pointer",
               background:view===v?C.secondary:"transparent",color:view===v?"white":C.onSurfaceVariant,
               border:view===v?"none":`1px solid ${C.outlineVariant}`}}>
               {v.charAt(0).toUpperCase()+v.slice(1)}
@@ -2080,33 +2087,13 @@ function AdminAnalytics({ requests, airbnbBookings, costs, setCosts, flashSave }
         </div>
       </div>
 
-      {/* Pay Elina this month card */}
-      <div style={{background:surplus>=0?"linear-gradient(135deg,#1a6a1a,#2a8a2a)":"linear-gradient(135deg,#b6000a,#dc241f)",borderRadius:"12px",padding:"20px 24px",marginBottom:"20px",color:"white",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"12px"}}>
-        <div>
-          <div style={{fontSize:"0.72rem",fontWeight:"700",opacity:0.8,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"4px"}}>
-            Pay Elina on the 5th — {MONTHS[now.getMonth()]} {now.getFullYear()}
-          </div>
-          <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"800",fontSize:"1.8rem"}}>
-            £{Math.abs(toElina > 0 ? toElina : 0).toFixed(2)}
-          </div>
-          <div style={{fontSize:"0.8rem",opacity:0.85,marginTop:"4px"}}>
-            Rent £{MONTHLY_RENT.toFixed(2)} − income £{curMonthRev.total.toFixed(2)} = {surplus>=0?"surplus £"+surplus.toFixed(2):"still owe £"+toElina.toFixed(2)}
-          </div>
-        </div>
-        <div style={{textAlign:"right"}}>
-          <div style={{fontSize:"0.72rem",opacity:0.7,marginBottom:"4px"}}>This month income</div>
-          <div style={{fontSize:"1.1rem",fontWeight:"700"}}>TCF £{curMonthRev.tcf.toFixed(2)}</div>
-          <div style={{fontSize:"1.1rem",fontWeight:"700"}}>Airbnb £{curMonthRev.airbnb.toFixed(2)}</div>
-        </div>
-      </div>
-
       {/* Summary cards */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:"12px",marginBottom:"20px"}}>
         {[
-          ["Total revenue",`£${yearRev.toLocaleString()}`,`${year}`,C.secondary],
-          ["Total costs",`£${yearCosts.toLocaleString()}`,`${year}`,"#856404"],
-          ["Net profit",`£${yearNet.toLocaleString()}`,`after costs`,yearNet>=0?"#155724":C.error],
-          ["Airbnb revenue",`£${airbnbRev.filter(b=>new Date(b.checkIn).getFullYear()===year).reduce((s,b)=>s+Number(b.revenue),0).toLocaleString()}`,`${year}`,"#155724"],
+          ["Income",`£${yearRev.toLocaleString()}`,`${year} total`,C.secondary],
+          ["Fixed costs",`£${yearFixed.toLocaleString()}`,`£${FIXED_TOTAL.toFixed(2)}/month`,"#856404"],
+          ["Variable costs",`£${yearVar.toLocaleString()}`,`cleaning etc.`,"#856404"],
+          ["Net profit",`£${yearProfit.toLocaleString()}`,`${year} total`,yearProfit>=0?"#155724":C.error],
         ].map(([label,value,sub,color])=>(
           <div key={label} style={{background:C.surfaceContainerLowest,borderRadius:"10px",padding:"16px",boxShadow:"0 2px 8px rgba(26,28,25,0.06)"}}>
             <div style={{fontSize:"0.7rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"6px"}}>{label}</div>
@@ -2116,27 +2103,32 @@ function AdminAnalytics({ requests, airbnbBookings, costs, setCosts, flashSave }
         ))}
       </div>
 
+      {/* Fixed costs info box */}
+      <div style={{background:C.surfaceContainerLow,borderRadius:"10px",padding:"14px 18px",marginBottom:"20px",fontSize:"0.82rem",color:C.onSurfaceVariant,display:"flex",gap:"24px",flexWrap:"wrap"}}>
+        <span><b>Fixed monthly costs:</b> £{FIXED_TOTAL.toFixed(2)}</span>
+        <span>Rent: £{FIXED_RENT.toFixed(2)}</span>
+        <span>Council tax: £{FIXED_COUNCIL.toFixed(2)}</span>
+        <span>Internet: £{FIXED_INTERNET.toFixed(2)}</span>
+      </div>
+
       {/* Bar chart */}
       <div className="card" style={{padding:"24px",marginBottom:"20px"}}>
         <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem",marginBottom:"16px"}}>
-          {view==="revenue"?"Monthly Revenue":view==="costs"?"Monthly Costs":"Revenue vs Costs"} — {year}
+          {view==="revenue"?"Monthly Income":view==="costs"?"Monthly Costs":"Income vs Costs"} — {year}
         </h3>
         <div style={{display:"flex",alignItems:"flex-end",gap:"6px",height:"160px",paddingBottom:"4px"}}>
           {months.map((m,i)=>{
-            const revH = maxBar>0?(m.total/maxBar)*140:0;
-            const costH = maxBar>0?(m.costs/maxBar)*140:0;
+            const revH = maxBar>0?(m.revenue/maxBar)*140:0;
+            const costH = maxBar>0?(m.totalCosts/maxBar)*140:0;
             const isCur = i===now.getMonth()&&year===now.getFullYear();
             return (
               <div key={m.month} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:"2px"}}>
-                <div style={{fontSize:"0.6rem",fontWeight:"700",color:C.onSurfaceVariant,marginBottom:"2px"}}>
-                  {view!=="costs"&&m.total>0?`£${Math.round(m.total)}`:""}
-                </div>
                 <div style={{width:"100%",display:"flex",gap:"2px",alignItems:"flex-end",height:"140px"}}>
                   {(view==="revenue"||view==="combined")&&(
-                    <div style={{flex:1,height:`${revH}px`,minHeight:m.total>0?4:0,background:isCur?C.primary:C.secondary,borderRadius:"3px 3px 0 0",transition:"height 0.3s"}}/>
+                    <div style={{flex:1,height:`${revH}px`,minHeight:m.revenue>0?4:0,background:isCur?C.primary:C.secondary,borderRadius:"3px 3px 0 0",transition:"height 0.3s"}}/>
                   )}
                   {(view==="costs"||view==="combined")&&(
-                    <div style={{flex:1,height:`${costH}px`,minHeight:m.costs>0?4:0,background:"#ffc107",borderRadius:"3px 3px 0 0",transition:"height 0.3s"}}/>
+                    <div style={{flex:1,height:`${costH}px`,minHeight:m.totalCosts>0?4:0,background:"#ffc107",borderRadius:"3px 3px 0 0",transition:"height 0.3s"}}/>
                   )}
                 </div>
                 <div style={{fontSize:"0.62rem",color:isCur?C.primary:C.onSurfaceVariant,fontWeight:isCur?"700":"400"}}>{m.month}</div>
@@ -2146,37 +2138,37 @@ function AdminAnalytics({ requests, airbnbBookings, costs, setCosts, flashSave }
         </div>
         {view==="combined"&&(
           <div style={{display:"flex",gap:"16px",marginTop:"8px"}}>
-            <div style={{display:"flex",alignItems:"center",gap:"6px",fontSize:"0.75rem"}}><div style={{width:"12px",height:"12px",borderRadius:"2px",background:C.secondary}}/> Revenue</div>
-            <div style={{display:"flex",alignItems:"center",gap:"6px",fontSize:"0.75rem"}}><div style={{width:"12px",height:"12px",borderRadius:"2px",background:"#ffc107"}}/> Costs</div>
+            <div style={{display:"flex",alignItems:"center",gap:"6px",fontSize:"0.75rem"}}><div style={{width:"12px",height:"12px",borderRadius:"2px",background:C.secondary}}/> Income</div>
+            <div style={{display:"flex",alignItems:"center",gap:"6px",fontSize:"0.75rem"}}><div style={{width:"12px",height:"12px",borderRadius:"2px",background:"#ffc107"}}/> Total costs</div>
           </div>
         )}
       </div>
 
       {/* Monthly breakdown table */}
       <div className="card" style={{padding:"24px",marginBottom:"20px"}}>
-        <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem",marginBottom:"16px"}}>Monthly breakdown — {year}</h3>
+        <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem",marginBottom:"16px"}}>Monthly overview — {year}</h3>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:"0.83rem"}}>
             <thead>
               <tr style={{borderBottom:`2px solid ${C.surfaceContainerHigh}`}}>
-                {["Month","TCF","Airbnb","Total revenue","Costs","Net","Pay Elina"].map(h=>(
+                {["Month","Income","Fixed costs","Variable","Total costs","Net profit"].map(h=>(
                   <th key={h} style={{textAlign:"left",padding:"8px 10px",fontSize:"0.7rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em"}}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {months.map((m,i)=>{
-                const toE = Math.max(0, MONTHLY_RENT - m.total);
                 const isCur = i===now.getMonth()&&year===now.getFullYear();
                 return (
                   <tr key={i} style={{borderBottom:`1px solid ${C.surfaceContainerLow}`,background:isCur?`${C.primaryFixed}40`:"transparent"}}>
                     <td style={{padding:"8px 10px",fontWeight:isCur?"700":"400"}}>{m.month}{isCur?" ←":""}</td>
-                    <td style={{padding:"8px 10px"}}>£{m.tcf.toFixed(0)}</td>
-                    <td style={{padding:"8px 10px",color:"#155724"}}>£{m.airbnb.toFixed(0)}</td>
-                    <td style={{padding:"8px 10px",fontWeight:"700",color:C.secondary}}>£{m.total.toFixed(0)}</td>
-                    <td style={{padding:"8px 10px",color:"#856404"}}>£{m.costs.toFixed(0)}</td>
-                    <td style={{padding:"8px 10px",fontWeight:"700",color:m.net>=0?"#155724":C.error}}>£{m.net.toFixed(0)}</td>
-                    <td style={{padding:"8px 10px",fontWeight:"700",color:toE===0?"#155724":C.error}}>{toE===0?"✓ covered":"£"+toE.toFixed(0)}</td>
+                    <td style={{padding:"8px 10px",fontWeight:"700",color:C.secondary}}>£{m.revenue.toFixed(0)}</td>
+                    <td style={{padding:"8px 10px",color:"#856404"}}>£{m.fixedCosts.toFixed(0)}</td>
+                    <td style={{padding:"8px 10px",color:"#856404"}}>£{m.varCosts.toFixed(0)}</td>
+                    <td style={{padding:"8px 10px",color:"#856404",fontWeight:"600"}}>£{m.totalCosts.toFixed(0)}</td>
+                    <td style={{padding:"8px 10px",fontWeight:"700",color:m.profit>=0?"#155724":C.error}}>
+                      {m.profit>=0?"+ ":"- "}£{Math.abs(m.profit).toFixed(0)}
+                    </td>
                   </tr>
                 );
               })}
@@ -2184,12 +2176,13 @@ function AdminAnalytics({ requests, airbnbBookings, costs, setCosts, flashSave }
             <tfoot>
               <tr style={{borderTop:`2px solid ${C.surfaceContainerHigh}`,background:C.surfaceContainerLow}}>
                 <td style={{padding:"8px 10px",fontWeight:"700"}}>Total {year}</td>
-                <td style={{padding:"8px 10px",fontWeight:"700"}}>£{months.reduce((s,m)=>s+m.tcf,0).toFixed(0)}</td>
-                <td style={{padding:"8px 10px",fontWeight:"700",color:"#155724"}}>£{months.reduce((s,m)=>s+m.airbnb,0).toFixed(0)}</td>
                 <td style={{padding:"8px 10px",fontWeight:"800",color:C.secondary}}>£{yearRev.toFixed(0)}</td>
-                <td style={{padding:"8px 10px",fontWeight:"700",color:"#856404"}}>£{yearCosts.toFixed(0)}</td>
-                <td style={{padding:"8px 10px",fontWeight:"800",color:yearNet>=0?"#155724":C.error}}>£{yearNet.toFixed(0)}</td>
-                <td/>
+                <td style={{padding:"8px 10px",fontWeight:"700",color:"#856404"}}>£{yearFixed.toFixed(0)}</td>
+                <td style={{padding:"8px 10px",fontWeight:"700",color:"#856404"}}>£{yearVar.toFixed(0)}</td>
+                <td style={{padding:"8px 10px",fontWeight:"700",color:"#856404"}}>£{(yearFixed+yearVar).toFixed(0)}</td>
+                <td style={{padding:"8px 10px",fontWeight:"800",color:yearProfit>=0?"#155724":C.error}}>
+                  {yearProfit>=0?"+ ":"- "}£{Math.abs(yearProfit).toFixed(0)}
+                </td>
               </tr>
             </tfoot>
           </table>
@@ -2199,7 +2192,7 @@ function AdminAnalytics({ requests, airbnbBookings, costs, setCosts, flashSave }
       {/* Costs manager */}
       <div className="card" style={{padding:"24px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px"}}>
-          <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem"}}>Costs</h3>
+          <h3 style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:"700",fontSize:"1rem"}}>Variable Costs</h3>
           <button onClick={()=>setShowAddCost(s=>!s)} className="btn-ghost" style={{fontSize:"0.85rem",display:"flex",alignItems:"center",gap:"6px"}}>
             <Icon name="add" size={16}/>Add cost
           </button>
@@ -2234,7 +2227,7 @@ function AdminAnalytics({ requests, airbnbBookings, costs, setCosts, flashSave }
           </div>
         )}
         {(!costs||costs.length===0)
-          ?<p style={{color:C.onSurfaceVariant,fontSize:"0.88rem"}}>No costs recorded yet.</p>
+          ?<p style={{color:C.onSurfaceVariant,fontSize:"0.88rem"}}>No variable costs recorded yet.</p>
           :(
           <div style={{display:"flex",flexDirection:"column",gap:"4px"}}>
             {[...(costs||[])].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(c=>(
