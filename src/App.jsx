@@ -481,7 +481,7 @@ function GuestPhotoGallery({ photos }) {
         {photos.map((p,i) => (
           <button key={i} onClick={() => setLightbox(i)}
             style={{borderRadius:"12px",overflow:"hidden",aspectRatio:"4/3",background:C.surfaceContainerHigh,border:"none",padding:0,cursor:"zoom-in",display:"block",position:"relative"}}>
-            <img src={p.url||p.data} alt={p.caption||`Photo ${i+1}`}
+            <img src={p.data} alt={p.caption||`Photo ${i+1}`}
               style={{width:"100%",height:"100%",objectFit:"cover",transition:"transform 0.4s",display:"block"}}
               onMouseEnter={e=>e.target.style.transform="scale(1.04)"}
               onMouseLeave={e=>e.target.style.transform="scale(1)"}/>
@@ -505,7 +505,7 @@ function GuestPhotoGallery({ photos }) {
           )}
           {/* Image */}
           <div onClick={e=>e.stopPropagation()} style={{maxWidth:"90vw",maxHeight:"90vh",display:"flex",flexDirection:"column",alignItems:"center",gap:"12px"}}>
-            <img src={photos[lightbox].url||photos[lightbox].data} alt={photos[lightbox].caption||`Photo ${lightbox+1}`}
+            <img src={photos[lightbox].data} alt={photos[lightbox].caption||`Photo ${lightbox+1}`}
               style={{maxWidth:"100%",maxHeight:"80vh",objectFit:"contain",borderRadius:"8px"}}/>
             {photos[lightbox].caption && (
               <p style={{color:"rgba(255,255,255,0.8)",fontSize:"0.9rem",textAlign:"center"}}>{photos[lightbox].caption}</p>
@@ -1720,20 +1720,15 @@ function AdminPhotos({ photos, setPhotos, flashSave }) {
     const newPhotos = [...currentPhotos];
     for(const file of files){
       try {
-        // Compress first
-        const compressed = await compressImage(file);
-        // Convert base64 to blob and upload to Supabase Storage
-        const filename = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-        const url = await sb.uploadPhoto(filename, compressed);
-        newPhotos.push({ url, caption: file.name.replace(/\.[^.]+$/, ""), filename });
+        const compressed = await compressImage(file, 900, 0.65);
+        newPhotos.push({data: compressed, caption: file.name.replace(/\.[^.]+$/, "")});
       } catch(err) {
         console.error("Failed to process", file.name, err);
-        alert(`Failed to upload ${file.name}. Please try again.`);
       }
     }
     setPhotos(newPhotos);
-    await sb.setSetting("photos", newPhotos.map(p => ({url: p.url, caption: p.caption, filename: p.filename})));
-    flashSave(`${files.length} photo(s) uploaded ✓`);
+    await sb.setSetting("photos", newPhotos);
+    flashSave(`${files.length} photo(s) added ✓`);
   }
   async function remove(i){
     const next=photos.filter((_,idx)=>idx!==i);
@@ -1759,7 +1754,7 @@ function AdminPhotos({ photos, setPhotos, flashSave }) {
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,260px))",gap:"16px",justifyContent:"start"}}>
           {photos.map((p,i)=>(
             <div key={i} className="card" style={{overflow:"hidden"}}>
-              <img src={p.url||p.data} alt={p.caption||`Photo ${i+1}`} style={{width:"100%",aspectRatio:"4/3",objectFit:"cover"}}/>
+              <img src={p.data} alt={p.caption||`Photo ${i+1}`} style={{width:"100%",aspectRatio:"4/3",objectFit:"cover"}}/>
               <div style={{padding:"14px"}}>
                 <input value={p.caption||""} onChange={e=>updateCaption(i,e.target.value)} placeholder="Add caption..."
                   className="input-field" style={{marginBottom:"8px",fontSize:"0.82rem"}}/>
