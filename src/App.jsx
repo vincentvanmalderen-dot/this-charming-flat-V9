@@ -1971,7 +1971,18 @@ function AdminAngelEdit({ tips, setTips, flashSave }) {
                       <input type="file" accept="image/*" onChange={e=>{
                         const file=e.target.files[0]; if(!file) return;
                         const reader=new FileReader();
-                        reader.onload=ev=>updatePlace(i,"photo",ev.target.result);
+                        reader.onload=ev=>{
+                          const img=new Image();
+                          img.onload=()=>{
+                            const canvas=document.createElement("canvas");
+                            let w=img.width,h=img.height;
+                            if(w>900){h=Math.round(h*900/w);w=900;}
+                            canvas.width=w;canvas.height=h;
+                            canvas.getContext("2d").drawImage(img,0,0,w,h);
+                            updatePlace(i,"photo",canvas.toDataURL("image/jpeg",0.65));
+                          };
+                          img.src=ev.target.result;
+                        };
                         reader.readAsDataURL(file);
                       }} style={{fontSize:"0.82rem",width:"100%"}}/>
                       {place.photo&&<button onClick={()=>updatePlace(i,"photo","")} style={{background:"none",border:"none",color:C.error,fontSize:"0.75rem",cursor:"pointer",marginTop:"4px",padding:0}}>Remove photo</button>}
