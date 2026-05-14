@@ -1308,10 +1308,7 @@ function AdminSidebar({ activeTab, setTab, pendingCount, sidebarOpen, setSidebar
               <div style={{fontSize:"0.72rem",opacity:0.6}}>Elina & Vincent</div>
             </div>
           </div>
-          <button className="btn-primary" style={{width:"100%",padding:"10px",fontSize:"0.85rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"8px"}}
-            onClick={()=>setTab("requests")}>
-            <Icon name="add" size={18}/>New Booking
-          </button>
+
         </div>
 
         {/* Nav */}
@@ -1648,7 +1645,7 @@ function AdminRequests({ requests, setRequests, blockedDates, setBlockedDates, f
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:"8px",fontSize:"0.83rem",marginBottom:"12px"}}>
               {[["Check-in",formatDate(r.check_in)],["Check-out",formatDate(r.check_out)],["Nights",r.nights],["Total",`£${r.total}`],["Email",r.email],...(r.phone?[["Phone",r.phone]]:[]),...(r.relationship?[["Relationship",r.relationship]]:[])].map(([k,v])=>(
-                <div key={k}><span style={{color:C.onSurfaceVariant}}>{k}: </span><strong>{v}</strong></div>
+                <div key={k} style={{minWidth:0}}><span style={{color:C.onSurfaceVariant}}>{k}: </span><strong style={{wordBreak:"break-all",overflowWrap:"anywhere"}}>{v}</strong></div>
               ))}
             </div>
             {r.message&&<div style={{fontSize:"0.82rem",fontStyle:"italic",color:C.onSurface,background:C.surfaceContainerLow,borderRadius:"8px",padding:"10px 14px",marginBottom:"12px"}}>"{r.message}"</div>}
@@ -1682,7 +1679,9 @@ function AdminRequests({ requests, setRequests, blockedDates, setBlockedDates, f
                 {/* Google Calendar */}
                 {r.status==="confirmed"&&(()=>{
                   const startDate = r.check_in?.replace(/-/g,"");
-                  const endDate = r.check_out?.replace(/-/g,"");
+                  // Google Calendar end date is exclusive, so add 1 day to checkout
+                  const checkoutPlus1 = r.check_out ? new Date(new Date(r.check_out).getTime() + 86400000).toISOString().slice(0,10).replace(/-/g,"") : "";
+                  const endDate = checkoutPlus1;
                   const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("This Charming Flat — "+r.name)}&dates=${startDate}/${endDate}&details=${encodeURIComponent(`${r.nights} nights · £${r.total}${r.relationship?" · "+r.relationship:""}`)}&location=${encodeURIComponent("247 Liverpool Road, Flat A, Angel, Islington, N1")}`;
                   return (
                     <a href={gcalUrl} target="_blank" rel="noopener noreferrer"
@@ -2046,7 +2045,11 @@ function AdminAnalytics({ requests, airbnbBookings, costs, setCosts, flashSave }
   }
 
   const now = new Date();
-  const months = Array.from({length:12}, (_,i) => {
+  // Start from March (index 2) - rental contract started March 2026
+  const monthIndices = year === 2026 
+    ? [2,3,4,5,6,7,8,9,10,11]           // Mar-Dec for first year
+    : [0,1,2,3,4,5,6,7,8,9,10,11];      // Full year from 2027+
+  const months = monthIndices.map(i => {
     const rev = getMonthRevenue(year, i);
     const c = getMonthCosts(year, i);
     return { month: SHORT_MONTHS[i], revenue: rev, varCosts: c.variable, fixedCosts: c.fixed, totalCosts: c.total, profit: rev - c.total };
@@ -2054,7 +2057,7 @@ function AdminAnalytics({ requests, airbnbBookings, costs, setCosts, flashSave }
 
   const yearRev   = months.reduce((s,m) => s + m.revenue, 0);
   const yearVar   = months.reduce((s,m) => s + m.varCosts, 0);
-  const yearFixed = FIXED_TOTAL * 12;
+  const yearFixed = FIXED_TOTAL * monthIndices.length;
   const yearProfit = yearRev - yearFixed - yearVar;
   const maxBar = Math.max(...months.map(m => Math.max(m.revenue, m.totalCosts)), 1);
 
@@ -2104,7 +2107,7 @@ function AdminAnalytics({ requests, airbnbBookings, costs, setCosts, flashSave }
           ["Income",`£${yearRev.toLocaleString()}`,`${year} total`,C.secondary],
           ["Fixed costs",`£${yearFixed.toLocaleString()}`,`£${FIXED_TOTAL.toFixed(2)}/month`,"#856404"],
           ["Variable costs",`£${yearVar.toLocaleString()}`,`cleaning etc.`,"#856404"],
-          ["Net profit",`£${yearProfit.toLocaleString()}`,`${year} total`,yearProfit>=0?"#155724":C.error],
+          ["Net profit (Vincent ⇄ Elina)",`£${yearProfit.toLocaleString()}`,`${year} total`,yearProfit>=0?"#155724":C.error],
         ].map(([label,value,sub,color])=>(
           <div key={label} style={{background:C.surfaceContainerLowest,borderRadius:"10px",padding:"16px",boxShadow:"0 2px 8px rgba(26,28,25,0.06)"}}>
             <div style={{fontSize:"0.7rem",fontWeight:"700",color:C.onSurfaceVariant,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"6px"}}>{label}</div>
