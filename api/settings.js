@@ -2,7 +2,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-admin-token");
@@ -41,16 +41,24 @@ export default async function handler(req, res) {
     }
     try {
       const { value } = req.body;
-      await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.${key}`, {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.${key}`, {
         method: "PATCH",
         headers,
         body: JSON.stringify({ value }),
       });
+      if (!r.ok) {
+        const err = await r.text();
+        return res.status(500).json({ error: "Failed to set setting", detail: err });
+      }
       return res.status(200).json({ ok: true });
     } catch (e) {
-      return res.status(500).json({ error: "Failed to set setting" });
+      return res.status(500).json({ error: "Failed to set setting", detail: e.message });
     }
   }
 
   return res.status(405).json({ error: "Method not allowed" });
-}
+};
+
+module.exports.config = {
+  api: { bodyParser: { sizeLimit: "10mb" } },
+};
